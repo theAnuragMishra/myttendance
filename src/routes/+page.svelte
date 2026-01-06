@@ -3,19 +3,52 @@
 	import { addSubject, deleteSubject, getAllSubjects, getAttendance, renameSubject } from '$lib/db';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import type { Subject } from '$lib/db.js';
+	import type { SubjectWithAttendance } from '$lib/db.js';
 	import Modal from '$lib/components/Modal.svelte';
 
-	let subjects: Array<Subject> = $state([]);
-	let percentages: Record<string, number> = $state({});
+	//sort features
+	let sortOptions = [
+		{ type: 'name', value: 'Name' },
+		{ type: 'newest', value: 'Newest Date First' },
+		{ type: 'attendance_low', value: 'Lowest Attendance First' },
+		{ type: 'attendance_high', value: 'Highest Attendance First' }
+	];
+
+	let sortStrategy = $state(localStorage.getItem('sortStrategy') ?? 'newest');
+
+	function sortSubjects(strategy: string, subs: Array<SubjectWithAttendance>) {
+		//console.log(strategy);
+		let sorted = [...subs];
+		if (!strategy || strategy === 'name') {
+			sorted.sort((a, b) => a.name.localeCompare(b.name));
+		} else if (strategy === 'newest') {
+			sorted.sort((a, b) => b.createdAt - a.createdAt);
+		} else if (strategy === 'attendance_low') {
+			sorted.sort((a, b) => {
+				let pa = a.total == 0 ? 0 : Math.round((a.present / a.total) * 100);
+				let pb = b.total == 0 ? 0 : Math.round((b.present / b.total) * 100);
+				if (pa == pb) return a.present - b.present;
+				else return pa - pb;
+			});
+		} else {
+			sorted.sort((a, b) => {
+				let pa = a.total == 0 ? 0 : Math.round((a.present / a.total) * 100);
+				let pb = b.total == 0 ? 0 : Math.round((b.present / b.total) * 100);
+				if (pa == pb) return b.present - a.present;
+				else return pb - pa;
+			});
+		}
+		return sorted;
+	}
+
+	let subjects: Array<SubjectWithAttendance> = $state([]);
+	let sortedSubjects: Array<SubjectWithAttendance> = $derived.by(() =>
+		sortSubjects(sortStrategy, subjects)
+	);
 	let newSubject = $state('');
 
 	const loadSubjects = async () => {
 		subjects = await getAllSubjects();
-		for (let s of subjects) {
-			const { present, total } = await getAttendance(s.id);
-			percentages[s.id] = total != 0 ? Math.round((present / total) * 100) : 0;
-		}
 	};
 
 	onMount(loadSubjects);
@@ -35,7 +68,7 @@
 	let subjectToDelete = $state('');
 	let subjectToDeleteName = $state('');
 
-	let editing = $state(-1);
+	let editing = $state('');
 	let newName = $state('');
 	let inputEl: HTMLInputElement | undefined = $state();
 
@@ -44,7 +77,7 @@
 		if (trimmed === oldName) return;
 		await renameSubject(id, trimmed);
 		await loadSubjects();
-		editing = -1;
+		editing = '';
 		newName = '';
 	}
 </script>
@@ -58,14 +91,26 @@
 	>
 </div>
 
+<div class="mb-2 flex items-center justify-end gap-2">
+	<span>Sort By:</span><select
+		onchange={() => localStorage.setItem('sortStrategy', sortStrategy)}
+		bind:value={sortStrategy}
+		class="w-fit rounded-md border px-2 py-1"
+	>
+		{#each sortOptions as opt}
+			<option value={opt.type}>{opt.value}</option>
+		{/each}
+	</select>
+</div>
+
 <div class="card">
 	<ul class="space-y-2">
-		{#each subjects as subject, i (i)}
+		{#each sortedSubjects as subject (subject.id)}
 			<li class={`flex justify-between gap-5`}>
-				{#if editing === i}
+				{#if editing === subject.id}
 					<input
 						bind:this={inputEl}
-						class={`border border-black px-4 py-2.5 text-[14px] ${percentages[subject.id] >= 75 ? 'bg-[#dcfce7] text-(--success)' : 'bg-[#fee2e2] text-(--danger)'} flex w-full justify-between`}
+						class={`border border-black px-4 py-2.5 text-[14px] ${(subject.total != 0 ? Math.round((subject.present / subject.total) * 100) : 0) >= 75 ? 'bg-[#dcfce7] text-(--success)' : 'bg-[#fee2e2] text-(--danger)'} flex w-full justify-between`}
 						type="text"
 						bind:value={newName}
 						onkeydown={(e) => {
@@ -74,21 +119,23 @@
 					/>
 				{:else}
 					<button
-						class={`border border-black px-4 py-2.5 ${percentages[subject.id] >= 75 ? 'bg-[#dcfce7] text-(--success)' : 'bg-[#fee2e2] text-(--danger)'} flex w-full justify-between`}
+						class={`border border-black px-4 py-2.5 ${(subject.total != 0 ? Math.round((subject.present / subject.total) * 100) : 0) >= 75 ? 'bg-[#dcfce7] text-(--success)' : 'bg-[#fee2e2] text-(--danger)'} flex w-full justify-between`}
 						onclick={() => openSubject(subject.id)}
 					>
 						<span>{subject.name}</span>
-						<span>{percentages[subject.id]}%</span>
+						<span
+							>{subject.total != 0 ? Math.round((subject.present / subject.total) * 100) : 0}%</span
+						>
 					</button>
 				{/if}
 
 				<span class="flex items-center gap-2">
 					<button
 						onclick={async () => {
-							if (editing === i) {
+							if (editing === subject.id) {
 								saveRename(subject.id, subject.name);
 							} else {
-								editing = i;
+								editing = subject.id;
 								newName = subject.name;
 								await tick();
 								inputEl!.focus();
@@ -98,7 +145,7 @@
 						aria-label="rename subject"
 						class="text-gray-600"
 					>
-						{#if editing === i}
+						{#if editing === subject.id}
 							<svg
 								class="h-6 w-6"
 								xmlns="http://www.w3.org/2000/svg"
@@ -123,8 +170,8 @@
 						aria-label="delete"
 						class="text-gray-600"
 						onclick={() => {
-							if (editing === i) {
-								editing = -1;
+							if (editing === subject.id) {
+								editing = '';
 								newName = '';
 							} else {
 								showModal = true;
@@ -133,7 +180,7 @@
 							}
 						}}
 					>
-						{#if editing === i}
+						{#if editing === subject.id}
 							<svg
 								class="h-6 w-6"
 								xmlns="http://www.w3.org/2000/svg"

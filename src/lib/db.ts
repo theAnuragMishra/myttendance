@@ -1,9 +1,14 @@
 import { Dexie, type EntityTable } from 'dexie';
 
-export interface Subject {
+interface Subject {
 	id: string;
 	name: string;
 	createdAt: number;
+}
+
+export interface SubjectWithAttendance extends Subject {
+	present: number;
+	total: number;
 }
 
 export interface Attendance {
@@ -47,7 +52,23 @@ export const renameSubject = async (id: string, newName: string) => {
 	});
 };
 
-export const getAllSubjects = () => db.subjects.orderBy('createdAt').toArray();
+export const getAllSubjects = async (): Promise<SubjectWithAttendance[]> => {
+	const subjects = await db.subjects.orderBy('createdAt').reverse().toArray();
+
+	const subjectsWithAttendance = await Promise.all(
+		subjects.map(async (s) => {
+			const { present, total } = await getAttendance(s.id);
+
+			return {
+				...s,
+				present,
+				total
+			};
+		})
+	);
+
+	return subjectsWithAttendance;
+};
 
 export const markAttendance = async (subjectId: string, date: string, status: string | null) => {
 	const existing = await db.attendance.where({ subjectId, date }).first();
