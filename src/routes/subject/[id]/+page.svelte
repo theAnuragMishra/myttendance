@@ -173,12 +173,20 @@
 		>
 	</div>
 </div>
-<Modal
-	bind:showModal
-	header={`Clear all attendance data for this subject?`}
-	description={`This will permanently delete all attendance records for the subject!`}
-	handleConfirmation={async () => {
-		await clearAttendanceForSubject(subjectId);
-		await loadCalendar();
-	}}
-/>
+<Modal bind:showModal>
+	{#snippet confirmButton()}
+		<button
+			class="danger px-4 py-1"
+			onclick={async () => {
+				await clearAttendanceForSubject(subjectId);
+				await loadCalendar();
+				showModal = false;
+			}}>Confirm</button
+		>
+	{/snippet}
+	<h1 class="mb-2 text-2xl">{`Clear all attendance data for this subject?`}</h1>
+
+	<p class="mb-2">
+		{`This will permanently delete all attendance records for the subject!`}
+	</p></Modal
+>

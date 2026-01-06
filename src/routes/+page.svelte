@@ -209,12 +209,18 @@
 	</ul>
 </div>
 
-<Modal
-	bind:showModal
-	header={`Delete ${subjectToDeleteName}?`}
-	description={`This will permanently delete all attendance records for the subject!`}
-	handleConfirmation={async () => {
-		await deleteSubject(subjectToDelete);
-		await loadSubjects();
-	}}
-/>
+<Modal bind:showModal>
+	{#snippet confirmButton()}
+		<button
+			class="danger px-4 py-1"
+			onclick={async () => {
+				await deleteSubject(subjectToDelete);
+				await loadSubjects();
+				showModal = false;
+			}}>Confirm</button
+		>
+	{/snippet}
+	<h1 class="mb-2 text-2xl">{`Delete ${subjectToDeleteName}?`}</h1>
+
+	<p class="mb-2">{`This will permanently delete all attendance records for the subject!`}</p>
+</Modal>

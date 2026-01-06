@@ -1,10 +1,11 @@
 <script>
-	let { showModal = $bindable(), header, description, handleConfirmation } = $props();
+	let { showModal = $bindable(), children, confirmButton } = $props();
 
 	let dialog = $state(); // HTMLDialogElement
 
 	$effect(() => {
 		if (showModal) dialog.showModal();
+		else dialog.close();
 	});
 </script>
 
@@ -17,22 +18,14 @@
 	}}
 >
 	<div>
-		<h1 class="mb-2 text-2xl">{header}</h1>
-
-		<p class="mb-2">{description}</p>
+		{@render children?.()}
 
 		<div class="flex justify-end gap-2">
 			<!-- svelte-ignore a11y_autofocus -->
 			<button class="bg-(--muted) px-4 py-1 text-white" autofocus onclick={() => dialog.close()}
 				>Cancel</button
 			>
-			<button
-				class="danger px-4 py-1"
-				onclick={async () => {
-					await handleConfirmation();
-					dialog.close();
-				}}>Confirm</button
-			>
+			{@render confirmButton?.()}
 		</div>
 	</div>
 </dialog>
