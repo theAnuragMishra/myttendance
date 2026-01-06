@@ -211,8 +211,9 @@
 
 <Modal
 	bind:showModal
-	subjectName={subjectToDeleteName}
-	handleDeletion={async () => {
+	header={`Delete ${subjectToDeleteName}?`}
+	description={`This will permanently delete all attendance records for the subject!`}
+	handleConfirmation={async () => {
 		await deleteSubject(subjectToDelete);
 		await loadSubjects();
 	}}

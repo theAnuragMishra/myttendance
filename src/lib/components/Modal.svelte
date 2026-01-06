@@ -1,5 +1,5 @@
 <script>
-	let { showModal = $bindable(), subjectName, handleDeletion } = $props();
+	let { showModal = $bindable(), header, description, handleConfirmation } = $props();
 
 	let dialog = $state(); // HTMLDialogElement
 
@@ -17,9 +17,9 @@
 	}}
 >
 	<div>
-		<h1 class="mb-2 text-2xl">Delete {subjectName}?</h1>
+		<h1 class="mb-2 text-2xl">{header}</h1>
 
-		<p class="mb-2">This will permanently delete all attendance records for the subject!</p>
+		<p class="mb-2">{description}</p>
 
 		<div class="flex justify-end gap-2">
 			<!-- svelte-ignore a11y_autofocus -->
@@ -29,9 +29,9 @@
 			<button
 				class="danger px-4 py-1"
 				onclick={async () => {
-					await handleDeletion();
+					await handleConfirmation();
 					dialog.close();
-				}}>Delete</button
+				}}>Confirm</button
 			>
 		</div>
 	</div>

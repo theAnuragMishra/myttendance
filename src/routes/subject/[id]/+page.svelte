@@ -1,9 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getAttendanceForMonth, markAttendance, getAttendance, getSubjectById } from '$lib/db';
+	import {
+		getAttendanceForMonth,
+		markAttendance,
+		getAttendance,
+		getSubjectById,
+		clearAttendanceForSubject
+	} from '$lib/db';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import Modal from '$lib/components/Modal.svelte';
 
 	interface DayObj {
 		day: number;
@@ -77,6 +84,8 @@
 	};
 
 	const goBack = () => goto(resolve('/'));
+
+	let showModal = $state(false);
 </script>
 
 <div class="flex flex-col gap-4">
@@ -145,4 +154,31 @@
 			</button>
 		{/each}
 	</div>
+	<div class="flex justify-end">
+		<button
+			onclick={() => (showModal = true)}
+			class="danger flex w-fit items-center gap-1 rounded-lg px-2 py-1"
+			aria-label="clear attendance data"
+			>Clear <svg
+				class="h-6 w-6"
+				xmlns="http://www.w3.org/2000/svg"
+				width="512"
+				height="512"
+				viewBox="0 0 512 512"
+				><path
+					fill="currentColor"
+					d="M258.9 48C141.92 46.42 46.42 141.92 48 258.9c1.56 112.19 92.91 203.54 205.1 205.1c117 1.6 212.48-93.9 210.88-210.88C462.44 140.91 371.09 49.56 258.9 48M429 239.92l-93.08-.1a2 2 0 0 1-1.95-1.57a80.08 80.08 0 0 0-27.44-44.17a2 2 0 0 1-.54-2.43l41.32-83.43a2 2 0 0 1 2.87-.81A176.2 176.2 0 0 1 431 237.71a2 2 0 0 1-2 2.21m-220.8 20.46a48 48 0 1 1 43.42 43.42a48 48 0 0 1-43.42-43.42m-43.55-152.16L206 191.65a2 2 0 0 1-.54 2.43A80.08 80.08 0 0 0 178 238.25a2 2 0 0 1-2 1.57l-93.08.1a2 2 0 0 1-2-2.21a176.2 176.2 0 0 1 80.82-130.3a2 2 0 0 1 2.91.81m-.37 295.34l56.31-74.09a2 2 0 0 1 2.43-.6a79.84 79.84 0 0 0 66 0a2 2 0 0 1 2.43.6l56.31 74.09a2 2 0 0 1-.54 2.92a175.65 175.65 0 0 1-182.36 0a2 2 0 0 1-.58-2.92"
+				/></svg
+			></button
+		>
+	</div>
 </div>
+<Modal
+	bind:showModal
+	header={`Clear all attendance data for this subject?`}
+	description={`This will permanently delete all attendance records for the subject!`}
+	handleConfirmation={async () => {
+		await clearAttendanceForSubject(subjectId);
+		await loadCalendar();
+	}}
+/>

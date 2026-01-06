@@ -99,3 +99,7 @@ export const getAttendance = async (subjectId: string) => {
 	const present = records.filter((r) => r.status === 'present').length;
 	return { present, total: records.length };
 };
+
+export const clearAttendanceForSubject = async (subjectId: string) => {
+	await db.attendance.where('subjectId').equals(subjectId).delete();
+};
