@@ -64,7 +64,7 @@
 		goto(resolve(`/subject/${id}`));
 	};
 
-	let showModal = $state(false);
+	let showDeleteModal = $state(false);
 	let subjectToDelete = $state('');
 	let subjectToDeleteName = $state('');
 
@@ -80,27 +80,20 @@
 		editing = '';
 		newName = '';
 	}
+
+	let showSortModal = $state(false);
 </script>
 
-<h1 class="mb-4 text-2xl">myttendance</h1>
+<div class="flex items-center justify-between">
+	<h1 class="mb-4 text-2xl">myttendance</h1>
+	<button onclick={() => (showSortModal = true)} class="text-(--primary) underline">Sort</button>
+</div>
 
 <div class="card flex items-center gap-2">
 	<input class="primary w-full" bind:value={newSubject} placeholder="New subject name" />
 	<button class="primary" disabled={newSubject.trim().length == 0} onclick={handleAddSubject}
 		>Add</button
 	>
-</div>
-
-<div class="mb-2 flex items-center justify-end gap-2">
-	<span>Sort By:</span><select
-		onchange={() => localStorage.setItem('sortStrategy', sortStrategy)}
-		bind:value={sortStrategy}
-		class="w-fit rounded-md border px-2 py-1"
-	>
-		{#each sortOptions as opt}
-			<option value={opt.type}>{opt.value}</option>
-		{/each}
-	</select>
 </div>
 
 <div class="card">
@@ -174,7 +167,7 @@
 								editing = '';
 								newName = '';
 							} else {
-								showModal = true;
+								showDeleteModal = true;
 								subjectToDelete = subject.id;
 								subjectToDeleteName = subject.name;
 							}
@@ -209,18 +202,36 @@
 	</ul>
 </div>
 
-<Modal bind:showModal>
+<Modal bind:showModal={showDeleteModal}>
 	{#snippet confirmButton()}
 		<button
 			class="danger px-4 py-1"
 			onclick={async () => {
 				await deleteSubject(subjectToDelete);
 				await loadSubjects();
-				showModal = false;
+				showDeleteModal = false;
 			}}>Confirm</button
 		>
 	{/snippet}
 	<h1 class="mb-2 text-2xl">{`Delete ${subjectToDeleteName}?`}</h1>
 
 	<p class="mb-2">{`This will permanently delete all attendance records for the subject!`}</p>
+</Modal>
+
+<Modal bind:showModal={showSortModal}>
+	{#snippet confirmButton()}{/snippet}
+	<div class="mb-4 flex items-center justify-end gap-2">
+		<span>Sort By:</span><select
+			onchange={() => {
+				localStorage.setItem('sortStrategy', sortStrategy);
+				showSortModal = false;
+			}}
+			bind:value={sortStrategy}
+			class="w-fit border px-2 py-0.5"
+		>
+			{#each sortOptions as opt}
+				<option value={opt.type}>{opt.value}</option>
+			{/each}
+		</select>
+	</div>
 </Modal>
