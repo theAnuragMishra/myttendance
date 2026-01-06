@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getAttendanceForMonth, markAttendance, getAttendance, getAllSubjects } from '$lib/db';
+	import { getAttendanceForMonth, markAttendance, getAttendance, getSubjectById } from '$lib/db';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -23,8 +23,8 @@
 	let total = $state(0);
 
 	const loadSubject = async () => {
-		const s = await getAllSubjects();
-		subjectName = s.find((sub) => sub.id === subjectId)?.name || '';
+		const subject = await getSubjectById(subjectId);
+		subjectName = subject?.name ?? '';
 	};
 
 	const loadCalendar = async () => {

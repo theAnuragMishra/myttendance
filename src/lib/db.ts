@@ -52,6 +52,10 @@ export const renameSubject = async (id: string, newName: string) => {
 	});
 };
 
+export const getSubjectById = (id: string) => {
+	return db.subjects.get(id);
+};
+
 export const getAllSubjects = async (): Promise<SubjectWithAttendance[]> => {
 	const subjects = await db.subjects.orderBy('createdAt').reverse().toArray();
 
