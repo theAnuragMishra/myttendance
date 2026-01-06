@@ -38,8 +38,8 @@
 
 <h1 class="mb-4 text-2xl">myttendance</h1>
 
-<div class="card">
-	<input bind:value={newSubject} placeholder="New subject name" />
+<div class="card flex items-center gap-2">
+	<input class="w-full" bind:value={newSubject} placeholder="New subject name" />
 	<button class="primary" disabled={newSubject.trim().length == 0} onclick={handleAddSubject}
 		>Add</button
 	>
@@ -50,7 +50,7 @@
 		{#each subjects as subject, i (i)}
 			<li class={`flex justify-between gap-5`}>
 				<button
-					class={`px-4 py-2.5 ${percentages[subject.id] >= 75 ? 'bg-[#dcfce7] text-(--success)' : 'bg-[#fee2e2] text-(--danger)'} flex w-full justify-between`}
+					class={`border border-black px-4 py-2.5 ${percentages[subject.id] >= 75 ? 'bg-[#dcfce7] text-(--success)' : 'bg-[#fee2e2] text-(--danger)'} flex w-full justify-between`}
 					onclick={() => openSubject(subject.id)}
 				>
 					<span>{subject.name}</span>
@@ -58,7 +58,7 @@
 				</button>
 				<button
 					aria-label="delete"
-					class="text-(--danger)"
+					class="text-gray-600"
 					onclick={() => {
 						showModal = true;
 						subjectToDelete = subject.id;

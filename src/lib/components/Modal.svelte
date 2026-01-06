@@ -23,7 +23,8 @@
 
 		<div class="flex justify-end gap-2">
 			<!-- svelte-ignore a11y_autofocus -->
-			<button class="bg-(--muted) px-4 py-1" autofocus onclick={() => dialog.close()}>Cancel</button
+			<button class="bg-(--muted) px-4 py-1 text-white" autofocus onclick={() => dialog.close()}
+				>Cancel</button
 			>
 			<button
 				class="danger px-4 py-1"
