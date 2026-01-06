@@ -91,7 +91,11 @@
 		>
 		<span class="flex justify-between"
 			><h2 class="text-2xl">{subjectName}</h2>
-			<span>{present}P/{total - present}A ({Math.round((present / total) * 100)}%)</span></span
+			<span
+				>{present}P/{total - present}A ({total === 0
+					? 0
+					: Math.round((present / total) * 100)}%)</span
+			></span
 		>
 	</div>
 
