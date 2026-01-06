@@ -99,7 +99,7 @@
 	<div id="calendar-grid">
 		{#each days as d (d)}
 			<button
-				style={d.day === new Date().getDate()
+				style={month - 1 === new Date().getMonth() && d.day === new Date().getDate()
 					? 'border: 2px solid blue'
 					: 'border: 1px solid black'}
 				class="day-cell {d.status === 'present'
