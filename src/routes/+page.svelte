@@ -73,12 +73,12 @@
 	let inputEl: HTMLInputElement | undefined = $state();
 
 	async function saveRename(id: string, oldName: string) {
+		editing = '';
+		newName = '';
 		const trimmed = newName.trim();
 		if (trimmed === oldName) return;
 		await renameSubject(id, trimmed);
 		await loadSubjects();
-		editing = '';
-		newName = '';
 	}
 
 	let showSortModal = $state(false);
@@ -103,7 +103,7 @@
 				{#if editing === subject.id}
 					<input
 						bind:this={inputEl}
-						class={`border border-black px-4 py-2.5 text-[14px] ${(subject.total != 0 ? Math.round((subject.present / subject.total) * 100) : 0) >= 75 ? 'bg-[#dcfce7] text-(--success)' : 'bg-[#fee2e2] text-(--danger)'} flex w-full justify-between`}
+						class={`flex w-full justify-between border border-black px-4 py-2.5 text-[14px]`}
 						type="text"
 						bind:value={newName}
 						onkeydown={(e) => {
