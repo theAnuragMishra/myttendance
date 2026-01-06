@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { addSubject, deleteSubject, getAllSubjects, getAttendance } from '$lib/db';
+	import { onMount, tick } from 'svelte';
+	import { addSubject, deleteSubject, getAllSubjects, getAttendance, renameSubject } from '$lib/db';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { Subject } from '$lib/db.js';
@@ -34,12 +34,25 @@
 	let showModal = $state(false);
 	let subjectToDelete = $state('');
 	let subjectToDeleteName = $state('');
+
+	let editing = $state(-1);
+	let newName = $state('');
+	let inputEl: HTMLInputElement | undefined = $state();
+
+	async function saveRename(id: string, oldName: string) {
+		const trimmed = newName.trim();
+		if (trimmed === oldName) return;
+		await renameSubject(id, trimmed);
+		await loadSubjects();
+		editing = -1;
+		newName = '';
+	}
 </script>
 
 <h1 class="mb-4 text-2xl">myttendance</h1>
 
 <div class="card flex items-center gap-2">
-	<input class="w-full" bind:value={newSubject} placeholder="New subject name" />
+	<input class="primary w-full" bind:value={newSubject} placeholder="New subject name" />
 	<button class="primary" disabled={newSubject.trim().length == 0} onclick={handleAddSubject}
 		>Add</button
 	>
@@ -49,28 +62,99 @@
 	<ul class="space-y-2">
 		{#each subjects as subject, i (i)}
 			<li class={`flex justify-between gap-5`}>
-				<button
-					class={`border border-black px-4 py-2.5 ${percentages[subject.id] >= 75 ? 'bg-[#dcfce7] text-(--success)' : 'bg-[#fee2e2] text-(--danger)'} flex w-full justify-between`}
-					onclick={() => openSubject(subject.id)}
-				>
-					<span>{subject.name}</span>
-					<span>{percentages[subject.id]}%</span>
-				</button>
-				<button
-					aria-label="delete"
-					class="text-gray-600"
-					onclick={() => {
-						showModal = true;
-						subjectToDelete = subject.id;
-						subjectToDeleteName = subject.name;
-					}}
-					><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-						><path
-							fill="currentColor"
-							d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6z"
-						/></svg
-					></button
-				>
+				{#if editing === i}
+					<input
+						bind:this={inputEl}
+						class={`border border-black px-4 py-2.5 text-[14px] ${percentages[subject.id] >= 75 ? 'bg-[#dcfce7] text-(--success)' : 'bg-[#fee2e2] text-(--danger)'} flex w-full justify-between`}
+						type="text"
+						bind:value={newName}
+						onkeydown={(e) => {
+							if (e.key === 'Enter') saveRename(subject.id, subject.name);
+						}}
+					/>
+				{:else}
+					<button
+						class={`border border-black px-4 py-2.5 ${percentages[subject.id] >= 75 ? 'bg-[#dcfce7] text-(--success)' : 'bg-[#fee2e2] text-(--danger)'} flex w-full justify-between`}
+						onclick={() => openSubject(subject.id)}
+					>
+						<span>{subject.name}</span>
+						<span>{percentages[subject.id]}%</span>
+					</button>
+				{/if}
+
+				<span class="flex items-center gap-2">
+					<button
+						onclick={async () => {
+							if (editing === i) {
+								saveRename(subject.id, subject.name);
+							} else {
+								editing = i;
+								newName = subject.name;
+								await tick();
+								inputEl!.focus();
+								inputEl!.select();
+							}
+						}}
+						aria-label="rename subject"
+						class="text-gray-600"
+					>
+						{#if editing === i}
+							<svg
+								class="h-6 w-6"
+								xmlns="http://www.w3.org/2000/svg"
+								width="8"
+								height="8"
+								viewBox="0 0 8 8"
+								><path
+									fill="currentColor"
+									d="m6.41 1l-.69.72L2.94 4.5l-.81-.78L1.41 3L0 4.41l.72.72l1.5 1.5l.69.72l.72-.72l3.5-3.5l.72-.72z"
+								/></svg
+							>
+						{:else}
+							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+								><path
+									fill="currentColor"
+									d="M3 21v-4.25L16.2 3.575q.3-.275.663-.425t.762-.15t.775.15t.65.45L20.425 5q.3.275.438.65T21 6.4q0 .4-.137.763t-.438.662L7.25 21zM17.6 7.8L19 6.4L17.6 5l-1.4 1.4z"
+								/></svg
+							>
+						{/if}
+					</button>
+					<button
+						aria-label="delete"
+						class="text-gray-600"
+						onclick={() => {
+							if (editing === i) {
+								editing = -1;
+								newName = '';
+							} else {
+								showModal = true;
+								subjectToDelete = subject.id;
+								subjectToDeleteName = subject.name;
+							}
+						}}
+					>
+						{#if editing === i}
+							<svg
+								class="h-6 w-6"
+								xmlns="http://www.w3.org/2000/svg"
+								width="15"
+								height="15"
+								viewBox="0 0 15 15"
+								><path
+									fill="currentColor"
+									d="M3.64 2.27L7.5 6.13l3.84-3.84A.92.92 0 0 1 12 2a1 1 0 0 1 1 1a.9.9 0 0 1-.27.66L8.84 7.5l3.89 3.89A.9.9 0 0 1 13 12a1 1 0 0 1-1 1a.92.92 0 0 1-.69-.27L7.5 8.87l-3.85 3.85A.92.92 0 0 1 3 13a1 1 0 0 1-1-1a.9.9 0 0 1 .27-.66L6.16 7.5L2.27 3.61A.9.9 0 0 1 2 3a1 1 0 0 1 1-1c.24.003.47.1.64.27"
+								/></svg
+							>
+						{:else}
+							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+								><path
+									fill="currentColor"
+									d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6z"
+								/></svg
+							>
+						{/if}
+					</button>
+				</span>
 			</li>
 		{:else}
 			Add a subject to start tracking!

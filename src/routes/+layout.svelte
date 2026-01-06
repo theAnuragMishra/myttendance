@@ -10,5 +10,12 @@
 	<link rel="manifest" href="/manifest.json" />
 	<title>myttendance</title>
 </svelte:head>
-<main class="mx-auto max-w-3xl px-4 py-8">{@render children()}</main>
-<p class="text-center">Made with ❤️ by Anurag</p>
+<main class="mx-auto max-w-xl px-4 py-8">{@render children()}</main>
+<p class="text-center">
+	Made with ❤️ by <a
+		class="text-(--primary)"
+		target="_blank"
+		rel="noreferrer noopener"
+		href="https://theanuragmishra.github.io">[Anurag]</a
+	>
+</p>

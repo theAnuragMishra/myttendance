@@ -39,6 +39,14 @@ export const deleteSubject = async (subjectId: string) => {
 	});
 };
 
+export const renameSubject = async (id: string, newName: string) => {
+	if (!newName.trim()) return;
+
+	await db.subjects.update(id, {
+		name: newName.trim()
+	});
+};
+
 export const getAllSubjects = () => db.subjects.orderBy('createdAt').toArray();
 
 export const markAttendance = async (subjectId: string, date: string, status: string | null) => {

@@ -55,7 +55,7 @@ button.danger {
 	color: white;
 }
 
-input {
+input.primary {
 	padding: 10px;
 	border-radius: var(--radius);
 	border: 1px solid var(--border);
