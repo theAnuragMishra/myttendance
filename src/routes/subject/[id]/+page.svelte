@@ -13,8 +13,11 @@
 
 	let subjectId = $state(page.params.id!);
 	let subjectName = $state('');
-	let year = $state(new Date().getFullYear()),
-		month = $state(new Date().getMonth() + 1);
+
+	let today = new Date();
+
+	let year = $state(today.getFullYear()),
+		month = $state(today.getMonth() + 1);
 	let days: DayObj[] = $state([]);
 	let present = $state(0);
 	let total = $state(0);
@@ -78,7 +81,14 @@
 
 <div class="flex flex-col gap-4">
 	<div class="flex flex-col gap-3.5">
-		<button class="secondary w-fit" onclick={goBack}>← Back</button>
+		<button
+			aria-label="go back"
+			class="secondary flex w-fit items-center justify-center"
+			onclick={goBack}
+			><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+				><path fill="currentColor" fill-rule="evenodd" d="m16 5l-8 7l8 7z" /></svg
+			>Back</button
+		>
 		<span class="flex justify-between"
 			><h2 class="text-2xl">{subjectName}</h2>
 			<span>{present}P/{total - present}A ({Math.round((present / total) * 100)}%)</span></span
@@ -86,20 +96,38 @@
 	</div>
 
 	<div class="flex w-full items-center justify-center gap-5">
-		<button class="secondary" onclick={prevMonth}>←</button>
+		<button aria-label="prev month" class="secondary" onclick={prevMonth}
+			><svg
+				class="h-4 w-4"
+				xmlns="http://www.w3.org/2000/svg"
+				width="8"
+				height="8"
+				viewBox="0 0 8 8"><path fill="currentColor" d="M5 2L3 4l2 2l-1 1l-3-3l3-3" /></svg
+			></button
+		>
 		<span
 			>{new Date(year, month - 1).toLocaleString('default', {
 				month: 'long',
 				year: 'numeric'
 			})}</span
 		>
-		<button class="secondary" onclick={nextMonth}>→</button>
+		<button aria-label="next month" class="secondary" onclick={nextMonth}
+			><svg
+				class="h-4 w-4"
+				xmlns="http://www.w3.org/2000/svg"
+				width="8"
+				height="8"
+				viewBox="0 0 8 8"><path fill="currentColor" d="m3 2l2 2l-2 2l1 1l3-3l-3-3" /></svg
+			></button
+		>
 	</div>
 
 	<div id="calendar-grid">
 		{#each days as d (d)}
 			<button
-				style={month - 1 === new Date().getMonth() && d.day === new Date().getDate()
+				style={year === today.getFullYear() &&
+				month - 1 === today.getMonth() &&
+				d.day === today.getDate()
 					? 'border: 2px solid blue'
 					: 'border: 1px solid black'}
 				class="day-cell {d.status === 'present'
