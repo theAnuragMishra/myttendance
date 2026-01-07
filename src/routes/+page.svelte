@@ -215,7 +215,7 @@
 	{/snippet}
 	<h1 class="mb-2 text-2xl">{`Delete ${subjectToDeleteName}?`}</h1>
 
-	<p class="mb-2">{`This will permanently delete all attendance records for the subject!`}</p>
+	<p class="mb-4">{`This will permanently delete all attendance records for the subject!`}</p>
 </Modal>
 
 <Modal bind:showModal={showSortModal}>
