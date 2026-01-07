@@ -89,7 +89,7 @@ export const getAttendanceForMonth = (subjectId: string, year: number, month: nu
 	const end = `${year}-${String(month).padStart(2, '0')}-31`;
 	return db.attendance
 		.where('[subjectId+date]')
-		.between([subjectId, start], [subjectId, end])
+		.between([subjectId, start], [subjectId, end], true, true)
 		.toArray();
 };
 
