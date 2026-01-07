@@ -94,7 +94,14 @@
 </div>
 
 <div class="card flex items-center gap-2">
-	<input class="primary w-full" bind:value={newSubject} placeholder="New subject name" />
+	<input
+		onkeydown={(e) => {
+			if (e.key === 'Enter') handleAddSubject();
+		}}
+		class="primary w-full"
+		bind:value={newSubject}
+		placeholder="New subject name"
+	/>
 	<button class="primary" disabled={newSubject.trim().length == 0} onclick={handleAddSubject}
 		>Add</button
 	>
