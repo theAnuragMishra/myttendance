@@ -98,16 +98,29 @@ input.primary {
 	border-radius: 0;
 }
 
+.day-cell.blank {
+	background: transparent;
+	cursor: default;
+}
+
 .day-present {
-	background: #dcfce7;
-	color: var(--success);
+	background: #4ade80;
+	/* color: var(--success); */
 	font-weight: 600;
 }
 
 .day-absent {
-	background: #fee2e2;
-	color: var(--danger);
+	background: #f87171;
+	/* color: var(--danger); */
 	font-weight: 600;
+}
+
+.weekday {
+	text-align: center;
+	font-weight: 600;
+	opacity: 0.75;
+	padding: 0.35rem 0;
+	font-size: 0.9rem;
 }
 
 /* DESKTOP */

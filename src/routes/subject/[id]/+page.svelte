@@ -12,11 +12,11 @@
 	import { resolve } from '$app/paths';
 	import Modal from '$lib/components/Modal.svelte';
 
-	interface DayObj {
+	type CalendarCell = {
 		day: number;
 		date: string;
 		status: string | null;
-	}
+	};
 
 	let subjectId = $state(page.params.id!);
 	let subjectName = $state('');
@@ -25,7 +25,7 @@
 
 	let year = $state(today.getFullYear()),
 		month = $state(today.getMonth() + 1);
-	let days: DayObj[] = $state([]);
+	let days: Array<CalendarCell | null> = $state([]);
 	let present = $state(0);
 	let total = $state(0);
 
@@ -40,11 +40,25 @@
 		records.forEach((r) => (recordMap[r.date] = r.status));
 
 		const daysInMonth = new Date(year, month, 0).getDate();
-		days = Array.from({ length: daysInMonth }, (_, i) => {
-			const day = i + 1;
+
+		const firstDayOfWeek = new Date(year, month - 1, 1).getDay();
+
+		const result: Array<CalendarCell | null> = [];
+
+		for (let i = 0; i < firstDayOfWeek; i++) {
+			result.push(null);
+		}
+
+		for (let day = 1; day <= daysInMonth; day++) {
 			const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-			return { day, date, status: recordMap[date] || null };
-		});
+			result.push({
+				day,
+				date,
+				status: recordMap[date] ?? null
+			});
+		}
+
+		days = result;
 
 		const attendance = await getAttendance(subjectId);
 		present = attendance.present;
@@ -56,7 +70,8 @@
 		await loadCalendar();
 	});
 
-	const toggleAttendance = async (dayObj: DayObj) => {
+	const toggleAttendance = async (dayObj: CalendarCell) => {
+		if (!dayObj || !dayObj.date) return;
 		let newStatus = null;
 		if (dayObj.status === null) newStatus = 'present';
 		else if (dayObj.status === 'present') newStatus = 'absent';
@@ -136,22 +151,33 @@
 	</div>
 
 	<div id="calendar-grid">
-		{#each days as d (d)}
-			<button
-				style={year === today.getFullYear() &&
-				month - 1 === today.getMonth() &&
-				d.day === today.getDate()
-					? 'border: 2px solid blue'
-					: 'border: 1px solid black'}
-				class="day-cell {d.status === 'present'
-					? 'day-present'
-					: d.status === 'absent'
-						? 'day-absent'
-						: ''}"
-				onclick={() => toggleAttendance(d)}
-			>
-				{d.day}
-			</button>
+		<div class="weekday">Sun</div>
+		<div class="weekday">Mon</div>
+		<div class="weekday">Tue</div>
+		<div class="weekday">Wed</div>
+		<div class="weekday">Thu</div>
+		<div class="weekday">Fri</div>
+		<div class="weekday">Sat</div>
+		{#each days as d}
+			{#if !d}
+				<div class="day-cell blank"></div>
+			{:else}
+				<button
+					style={year === today.getFullYear() &&
+					month - 1 === today.getMonth() &&
+					d.day === today.getDate()
+						? 'border: 2px solid blue'
+						: 'border: 1px solid black'}
+					class="day-cell {d.status === 'present'
+						? 'day-present'
+						: d.status === 'absent'
+							? 'day-absent'
+							: ''}"
+					onclick={() => toggleAttendance(d)}
+				>
+					{d.day}
+				</button>
+			{/if}
 		{/each}
 	</div>
 	<div class="flex justify-end">
