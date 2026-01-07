@@ -74,9 +74,9 @@
 
 	async function saveRename(id: string, oldName: string) {
 		editing = '';
-		newName = '';
 		const trimmed = newName.trim();
-		if (trimmed === oldName) return;
+		newName = '';
+		if (!trimmed || trimmed === oldName) return;
 		await renameSubject(id, trimmed);
 		await loadSubjects();
 	}
