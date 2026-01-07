@@ -27,15 +27,19 @@
 			sorted.sort((a, b) => {
 				let pa = a.total == 0 ? 0 : Math.round((a.present / a.total) * 100);
 				let pb = b.total == 0 ? 0 : Math.round((b.present / b.total) * 100);
-				if (pa == pb) return a.present - b.present;
-				else return pa - pb;
+
+				if (pa != pb) return pa - pb;
+				// i first wrote the next line in flow but suddenly realised it's redundant. what a gotcha!
+				// if (a.present != b.present) return a.present - b.present;
+				return b.absent - a.absent;
 			});
 		} else {
 			sorted.sort((a, b) => {
 				let pa = a.total == 0 ? 0 : Math.round((a.present / a.total) * 100);
 				let pb = b.total == 0 ? 0 : Math.round((b.present / b.total) * 100);
-				if (pa == pb) return b.present - a.present;
-				else return pb - pa;
+				if (pa != pb) return pb - pa;
+				// if (a.present != b.present) return a.present - b.present;
+				return a.absent - b.absent;
 			});
 		}
 		return sorted;
