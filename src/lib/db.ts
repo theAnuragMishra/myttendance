@@ -8,6 +8,7 @@ interface Subject {
 
 export interface SubjectWithAttendance extends Subject {
 	present: number;
+	absent: number;
 	total: number;
 }
 
@@ -15,7 +16,8 @@ export interface Attendance {
 	id: string;
 	subjectId: string;
 	date: string;
-	status: string;
+	present: number;
+	absent: number;
 }
 
 export const db = new Dexie('attendanceDB') as Dexie & {
@@ -27,6 +29,25 @@ db.version(1).stores({
 	subjects: 'id, name, createdAt',
 	attendance: 'id, [subjectId+date], subjectId, date, status'
 });
+
+db.version(2)
+	.stores({
+		subjects: 'id, name, createdAt',
+		attendance: 'id, [subjectId+date], subjectId, date'
+	})
+	.upgrade(async (tx) => {
+		await tx
+			.table('attendance')
+			.toCollection()
+			.modify((rec) => {
+				const status = rec.status;
+
+				rec.present = status === 'present' ? 1 : 0;
+				rec.absent = status === 'absent' ? 1 : 0;
+
+				delete rec.status;
+			});
+	});
 
 export const uuid = () => crypto.randomUUID();
 
@@ -61,12 +82,13 @@ export const getAllSubjects = async (): Promise<SubjectWithAttendance[]> => {
 
 	const subjectsWithAttendance = await Promise.all(
 		subjects.map(async (s) => {
-			const { present, total } = await getAttendance(s.id);
+			const { present, absent } = await getAttendance(s.id);
 
 			return {
 				...s,
 				present,
-				total
+				absent,
+				total: present + absent
 			};
 		})
 	);
@@ -74,19 +96,47 @@ export const getAllSubjects = async (): Promise<SubjectWithAttendance[]> => {
 	return subjectsWithAttendance;
 };
 
-export const markAttendance = async (subjectId: string, date: string, status: string | null) => {
+export const markAttendance = async (
+	subjectId: string,
+	date: string,
+	status: 'present' | 'absent',
+	count: number
+) => {
 	const existing = await db.attendance.where({ subjectId, date }).first();
+
 	if (existing) {
-		if (status === null) await db.attendance.delete(existing.id);
-		else await db.attendance.update(existing.id, { status });
-	} else if (status !== null) {
-		await db.attendance.add({ id: uuid(), subjectId, date, status });
+		let { present, absent } = existing;
+		if (status === 'present') {
+			present += count;
+		} else if (status === 'absent') {
+			absent += count;
+		}
+
+		present = Math.max(0, present);
+		absent = Math.max(0, absent);
+
+		if (present === 0 && absent === 0) {
+			await db.attendance.delete(existing.id);
+		} else
+			await db.attendance.update(existing.id, {
+				present,
+				absent
+			});
+	} else {
+		await db.attendance.add({
+			id: uuid(),
+			subjectId,
+			date,
+			present: status === 'present' ? count : 0,
+			absent: status === 'absent' ? count : 0
+		});
 	}
 };
 
 export const getAttendanceForMonth = (subjectId: string, year: number, month: number) => {
 	const start = `${year}-${String(month).padStart(2, '0')}-01`;
-	const end = `${year}-${String(month).padStart(2, '0')}-31`;
+	const daysInMonth = new Date(year, month, 0).getDate();
+	const end = `${year}-${String(month).padStart(2, '0')}-${daysInMonth}`;
 	return db.attendance
 		.where('[subjectId+date]')
 		.between([subjectId, start], [subjectId, end], true, true)
@@ -95,9 +145,23 @@ export const getAttendanceForMonth = (subjectId: string, year: number, month: nu
 
 export const getAttendance = async (subjectId: string) => {
 	const records = await db.attendance.where('subjectId').equals(subjectId).toArray();
-	if (records.length === 0) return { present: 0, total: 0 };
-	const present = records.filter((r) => r.status === 'present').length;
-	return { present, total: records.length };
+
+	if (records.length === 0) {
+		return { present: 0, absent: 0 };
+	}
+
+	let totalPresent = 0;
+	let totalAbsent = 0;
+
+	for (const r of records) {
+		totalPresent += r.present;
+		totalAbsent += r.absent;
+	}
+
+	return {
+		present: totalPresent,
+		absent: totalAbsent
+	};
 };
 
 export const clearAttendanceForSubject = async (subjectId: string) => {

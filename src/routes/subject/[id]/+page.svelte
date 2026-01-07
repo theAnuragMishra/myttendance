@@ -11,11 +11,12 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import Modal from '$lib/components/Modal.svelte';
+	import AttendanceCell from '$lib/components/AttendanceCell.svelte';
 
 	type CalendarCell = {
 		day: number;
 		date: string;
-		status: string | null;
+		attendance: { present: number; absent: number } | null;
 	};
 
 	let subjectId = $state(page.params.id!);
@@ -27,7 +28,8 @@
 		month = $state(today.getMonth() + 1);
 	let days: Array<CalendarCell | null> = $state([]);
 	let present = $state(0);
-	let total = $state(0);
+	let absent = $state(0);
+	let total = $derived(present + absent);
 
 	const loadSubject = async () => {
 		const subject = await getSubjectById(subjectId);
@@ -36,8 +38,8 @@
 
 	const loadCalendar = async () => {
 		const records = await getAttendanceForMonth(subjectId, year, month);
-		const recordMap: Record<string, string> = {};
-		records.forEach((r) => (recordMap[r.date] = r.status));
+		const recordMap: Record<string, { present: number; absent: number }> = {};
+		records.forEach((r) => (recordMap[r.date] = { present: r.present, absent: r.absent }));
 
 		const daysInMonth = new Date(year, month, 0).getDate();
 
@@ -51,18 +53,21 @@
 
 		for (let day = 1; day <= daysInMonth; day++) {
 			const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-			result.push({
+			const cell = {
 				day,
 				date,
-				status: recordMap[date] ?? null
-			});
+				attendance: recordMap[date] ?? null
+			};
+			result.push(cell);
+
+			if (cell.day === (daySelected ? daySelected.day : today.getDate())) daySelected = cell;
 		}
 
 		days = result;
 
 		const attendance = await getAttendance(subjectId);
 		present = attendance.present;
-		total = attendance.total;
+		absent = attendance.absent;
 	};
 
 	onMount(async () => {
@@ -70,14 +75,9 @@
 		await loadCalendar();
 	});
 
-	const toggleAttendance = async (dayObj: CalendarCell) => {
-		if (!dayObj || !dayObj.date) return;
-		let newStatus = null;
-		if (dayObj.status === null) newStatus = 'present';
-		else if (dayObj.status === 'present') newStatus = 'absent';
-		else if (dayObj.status === 'absent') newStatus = null;
-
-		await markAttendance(subjectId, dayObj.date, newStatus);
+	const handleSetAttendance = async (status: 'present' | 'absent', count: number) => {
+		if (!daySelected) return;
+		await markAttendance(subjectId, daySelected.date, status, count);
 		await loadCalendar();
 	};
 
@@ -101,10 +101,12 @@
 	const goBack = () => goto(resolve('/'));
 
 	let showModal = $state(false);
+
+	let daySelected: CalendarCell | null = $state(null);
 </script>
 
 <div class="flex flex-col gap-4">
-	<div class="flex flex-col gap-3.5">
+	<div class="mb-2 flex flex-col gap-3.5">
 		<button
 			aria-label="go back"
 			class="secondary flex w-fit items-center justify-center"
@@ -115,10 +117,14 @@
 		>
 		<span class="flex justify-between"
 			><h2 class="text-2xl">{subjectName}</h2>
-			<span
-				>{present}P/{total - present}A ({total === 0
-					? 0
-					: Math.round((present / total) * 100)}%)</span
+			<span class="flex items-center gap-1"
+				><span class="rounded-lg bg-gray-800 px-2 py-1 text-white"
+					>{present}P/{absent}A ({total === 0 ? 0 : Math.round((present / total) * 100)}%)</span
+				><button
+					onclick={() => (showModal = true)}
+					class="danger flex h-full w-fit items-center gap-1 rounded-lg px-2 py-1"
+					aria-label="clear attendance data">Clear</button
+				></span
 			></span
 		>
 	</div>
@@ -162,41 +168,56 @@
 			{#if !d}
 				<div class="day-cell blank"></div>
 			{:else}
-				<button
-					style={year === today.getFullYear() &&
-					month - 1 === today.getMonth() &&
-					d.day === today.getDate()
-						? 'border: 2px solid blue'
-						: 'border: 1px solid black'}
-					class="day-cell {d.status === 'present'
-						? 'day-present'
-						: d.status === 'absent'
-							? 'day-absent'
-							: ''}"
-					onclick={() => toggleAttendance(d)}
-				>
-					{d.day}
-				</button>
+				<AttendanceCell
+					day={d.day}
+					present={d.attendance?.present}
+					absent={d.attendance?.absent}
+					onClick={() => (daySelected = d)}
+					selected={daySelected != null && daySelected.date === d.date}
+				/>
 			{/if}
 		{/each}
 	</div>
-	<div class="flex justify-end">
-		<button
-			onclick={() => (showModal = true)}
-			class="danger flex w-fit items-center gap-1 rounded-lg px-2 py-1"
-			aria-label="clear attendance data"
-			>Clear <svg
-				class="h-6 w-6"
-				xmlns="http://www.w3.org/2000/svg"
-				width="512"
-				height="512"
-				viewBox="0 0 512 512"
-				><path
-					fill="currentColor"
-					d="M258.9 48C141.92 46.42 46.42 141.92 48 258.9c1.56 112.19 92.91 203.54 205.1 205.1c117 1.6 212.48-93.9 210.88-210.88C462.44 140.91 371.09 49.56 258.9 48M429 239.92l-93.08-.1a2 2 0 0 1-1.95-1.57a80.08 80.08 0 0 0-27.44-44.17a2 2 0 0 1-.54-2.43l41.32-83.43a2 2 0 0 1 2.87-.81A176.2 176.2 0 0 1 431 237.71a2 2 0 0 1-2 2.21m-220.8 20.46a48 48 0 1 1 43.42 43.42a48 48 0 0 1-43.42-43.42m-43.55-152.16L206 191.65a2 2 0 0 1-.54 2.43A80.08 80.08 0 0 0 178 238.25a2 2 0 0 1-2 1.57l-93.08.1a2 2 0 0 1-2-2.21a176.2 176.2 0 0 1 80.82-130.3a2 2 0 0 1 2.91.81m-.37 295.34l56.31-74.09a2 2 0 0 1 2.43-.6a79.84 79.84 0 0 0 66 0a2 2 0 0 1 2.43.6l56.31 74.09a2 2 0 0 1-.54 2.92a175.65 175.65 0 0 1-182.36 0a2 2 0 0 1-.58-2.92"
-				/></svg
-			></button
-		>
+
+	<div class="flex items-center justify-center gap-3">
+		<div class="flex h-10 rounded-lg bg-red-500 text-white">
+			<button
+				disabled={!daySelected || !daySelected.attendance || daySelected.attendance.absent <= 0}
+				class="h-full w-6 rounded-l-lg bg-red-600"
+				onclick={() => {
+					handleSetAttendance('absent', -1);
+				}}
+			>
+				-
+			</button>
+			<button
+				class="h-full rounded-r-lg px-2"
+				onclick={() => {
+					handleSetAttendance('absent', 1);
+				}}
+			>
+				Absent ({daySelected?.attendance?.absent ?? 0})
+			</button>
+		</div>
+		<div class="flex h-10 rounded-lg bg-green-600 text-white">
+			<button
+				disabled={!daySelected || !daySelected.attendance || daySelected.attendance.present <= 0}
+				class="h-full w-6 rounded-l-lg bg-green-700"
+				onclick={() => {
+					handleSetAttendance('present', -1);
+				}}
+			>
+				-
+			</button>
+			<button
+				class="h-full rounded-r-lg px-2"
+				onclick={() => {
+					handleSetAttendance('present', 1);
+				}}
+			>
+				Present ({daySelected?.attendance?.present ?? 0})
+			</button>
+		</div>
 	</div>
 </div>
 <Modal bind:showModal>
