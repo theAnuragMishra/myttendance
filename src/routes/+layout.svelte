@@ -11,7 +11,7 @@
 	<title>myttendance</title>
 </svelte:head>
 <main class="mx-auto max-w-xl px-4 py-8">{@render children()}</main>
-<p class="text-center">
+<p class="pb-4 text-center">
 	Made with ❤️ by <a
 		class="text-(--primary)"
 		target="_blank"

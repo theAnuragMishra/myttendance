@@ -170,3 +170,6 @@ export const getAttendance = async (subjectId: string) => {
 export const clearAttendanceForSubject = async (subjectId: string) => {
 	await db.attendance.where('subjectId').equals(subjectId).delete();
 };
+
+export const clearAllData = () =>
+	Promise.all(Object.values(db.tables).map((table) => table.clear()));

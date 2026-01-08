@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { addSubject, deleteSubject, getAllSubjects, getAttendance, renameSubject } from '$lib/db';
+	import { addSubject, clearAllData, deleteSubject, getAllSubjects, renameSubject } from '$lib/db';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { SubjectWithAttendance } from '$lib/db.js';
@@ -86,6 +86,7 @@
 	}
 
 	let showSortModal = $state(false);
+	let showClearModal = $state(false);
 </script>
 
 <div class="flex items-center justify-between">
@@ -213,6 +214,14 @@
 	</ul>
 </div>
 
+{#if subjects.length}
+	<p class="text-center">
+		<button onclick={() => (showClearModal = true)} class="text-(--primary) underline"
+			>Clear All Subjects</button
+		>
+	</p>
+{/if}
+
 <Modal bind:showModal={showDeleteModal}>
 	{#snippet confirmButton()}
 		<button
@@ -245,4 +254,22 @@
 			{/each}
 		</select>
 	</div>
+</Modal>
+
+<Modal bind:showModal={showClearModal}>
+	{#snippet confirmButton()}
+		<button
+			class="danger px-4 py-1"
+			onclick={async () => {
+				await clearAllData();
+				await loadSubjects();
+				showClearModal = false;
+			}}>Confirm</button
+		>
+	{/snippet}
+	<h1 class="mb-2 text-2xl">{`Clear all subjects?`}</h1>
+
+	<p class="mb-4">
+		{`This will permanently delete all attendance records for all the subjects! Use this when you're starting a new semester.`}
+	</p>
 </Modal>
