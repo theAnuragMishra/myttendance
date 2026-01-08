@@ -1,6 +1,6 @@
 import { Dexie, type EntityTable } from 'dexie';
 
-interface Subject {
+export interface Subject {
 	id: string;
 	name: string;
 	createdAt: number;
@@ -102,6 +102,9 @@ export const markAttendance = async (
 	status: 'present' | 'absent',
 	count: number
 ) => {
+	const subject = await getSubjectById(subjectId);
+	if (!subject) return;
+
 	const existing = await db.attendance.where({ subjectId, date }).first();
 
 	if (existing) {

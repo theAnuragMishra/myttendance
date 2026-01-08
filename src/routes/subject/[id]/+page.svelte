@@ -5,7 +5,8 @@
 		markAttendance,
 		getAttendance,
 		getSubjectById,
-		clearAttendanceForSubject
+		clearAttendanceForSubject,
+		type Subject
 	} from '$lib/db';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -20,7 +21,7 @@
 	};
 
 	let subjectId = $state(page.params.id!);
-	let subjectName = $state('');
+	let subject: Subject | undefined = $state();
 
 	let today = new Date();
 
@@ -32,8 +33,8 @@
 	let total = $derived(present + absent);
 
 	const loadSubject = async () => {
-		const subject = await getSubjectById(subjectId);
-		subjectName = subject?.name ?? '';
+		subject = await getSubjectById(subjectId);
+		if (!subject) goto('/');
 	};
 
 	const loadCalendar = async () => {
@@ -76,7 +77,7 @@
 	});
 
 	const handleSetAttendance = async (status: 'present' | 'absent', count: number) => {
-		if (!daySelected) return;
+		if (!daySelected || !subject) return;
 		await markAttendance(subjectId, daySelected.date, status, count);
 		await loadCalendar();
 	};
@@ -116,7 +117,7 @@
 			>Back</button
 		>
 		<span class="flex justify-between"
-			><h2 class="text-2xl">{subjectName}</h2>
+			><h2 class="text-2xl">{subject?.name}</h2>
 			<span class="flex items-center gap-1"
 				><span class="rounded-lg bg-gray-800 px-2 py-1 text-white"
 					>{present}P/{absent}A ({total === 0 ? 0 : Math.round((present / total) * 100)}%)</span
