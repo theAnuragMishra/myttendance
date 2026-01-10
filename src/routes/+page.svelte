@@ -5,6 +5,9 @@
 	import { resolve } from '$app/paths';
 	import type { SubjectWithAttendance } from '$lib/db.js';
 	import Modal from '$lib/components/Modal.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
+
+	let loading = $state(true);
 
 	//sort features
 	let sortOptions = [
@@ -55,7 +58,10 @@
 		subjects = await getAllSubjects();
 	};
 
-	onMount(loadSubjects);
+	onMount(async () => {
+		await loadSubjects();
+		loading = false;
+	});
 
 	const handleAddSubject = async () => {
 		if (!newSubject.trim()) return;
@@ -108,111 +114,117 @@
 	>
 </div>
 
-<div class="card">
-	<ul class="space-y-2">
-		{#each sortedSubjects as subject (subject.id)}
-			<li class={`flex justify-between gap-5`}>
-				{#if editing === subject.id}
-					<input
-						bind:this={inputEl}
-						class={`flex w-full justify-between border border-black px-4 py-2.5 text-[14px]`}
-						type="text"
-						bind:value={newName}
-						onkeydown={(e) => {
-							if (e.key === 'Enter') saveRename(subject.id, subject.name);
-						}}
-					/>
-				{:else}
-					<button
-						class={`border border-black px-4 py-2.5 ${(subject.total != 0 ? Math.round((subject.present / subject.total) * 100) : 0) >= 75 ? 'bg-[#4ade80]' : 'bg-[#f87171]'} flex w-full justify-between`}
-						onclick={() => openSubject(subject.id)}
-					>
-						<span>{subject.name}</span>
-						<span
-							>{subject.total != 0 ? Math.round((subject.present / subject.total) * 100) : 0}%</span
+{#if loading}
+	<Spinner />
+{:else}
+	<div class="card">
+		<ul class="space-y-2">
+			{#each sortedSubjects as subject (subject.id)}
+				<li class={`flex justify-between gap-5`}>
+					{#if editing === subject.id}
+						<input
+							bind:this={inputEl}
+							class={`flex w-full justify-between border border-black px-4 py-2.5 text-[14px]`}
+							type="text"
+							bind:value={newName}
+							onkeydown={(e) => {
+								if (e.key === 'Enter') saveRename(subject.id, subject.name);
+							}}
+						/>
+					{:else}
+						<button
+							class={`border border-black px-4 py-2.5 ${(subject.total != 0 ? Math.round((subject.present / subject.total) * 100) : 0) >= 75 ? 'bg-[#4ade80]' : 'bg-[#f87171]'} flex w-full justify-between`}
+							onclick={() => openSubject(subject.id)}
 						>
-					</button>
-				{/if}
+							<span>{subject.name}</span>
+							<span
+								>{subject.total != 0
+									? Math.round((subject.present / subject.total) * 100)
+									: 0}%</span
+							>
+						</button>
+					{/if}
 
-				<span class="flex items-center gap-2">
-					<button
-						onclick={async () => {
-							if (editing === subject.id) {
-								saveRename(subject.id, subject.name);
-							} else {
-								editing = subject.id;
-								newName = subject.name;
-								await tick();
-								inputEl!.focus();
-								inputEl!.select();
-							}
-						}}
-						aria-label="rename subject"
-						class="text-gray-600"
-					>
-						{#if editing === subject.id}
-							<svg
-								class="h-6 w-6"
-								xmlns="http://www.w3.org/2000/svg"
-								width="8"
-								height="8"
-								viewBox="0 0 8 8"
-								><path
-									fill="currentColor"
-									d="m6.41 1l-.69.72L2.94 4.5l-.81-.78L1.41 3L0 4.41l.72.72l1.5 1.5l.69.72l.72-.72l3.5-3.5l.72-.72z"
-								/></svg
-							>
-						{:else}
-							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-								><path
-									fill="currentColor"
-									d="M3 21v-4.25L16.2 3.575q.3-.275.663-.425t.762-.15t.775.15t.65.45L20.425 5q.3.275.438.65T21 6.4q0 .4-.137.763t-.438.662L7.25 21zM17.6 7.8L19 6.4L17.6 5l-1.4 1.4z"
-								/></svg
-							>
-						{/if}
-					</button>
-					<button
-						aria-label="delete"
-						class="text-gray-600"
-						onclick={() => {
-							if (editing === subject.id) {
-								editing = '';
-								newName = '';
-							} else {
-								showDeleteModal = true;
-								subjectToDelete = subject.id;
-								subjectToDeleteName = subject.name;
-							}
-						}}
-					>
-						{#if editing === subject.id}
-							<svg
-								class="h-6 w-6"
-								xmlns="http://www.w3.org/2000/svg"
-								width="15"
-								height="15"
-								viewBox="0 0 15 15"
-								><path
-									fill="currentColor"
-									d="M3.64 2.27L7.5 6.13l3.84-3.84A.92.92 0 0 1 12 2a1 1 0 0 1 1 1a.9.9 0 0 1-.27.66L8.84 7.5l3.89 3.89A.9.9 0 0 1 13 12a1 1 0 0 1-1 1a.92.92 0 0 1-.69-.27L7.5 8.87l-3.85 3.85A.92.92 0 0 1 3 13a1 1 0 0 1-1-1a.9.9 0 0 1 .27-.66L6.16 7.5L2.27 3.61A.9.9 0 0 1 2 3a1 1 0 0 1 1-1c.24.003.47.1.64.27"
-								/></svg
-							>
-						{:else}
-							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-								><path
-									fill="currentColor"
-									d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6z"
-								/></svg
-							>
-						{/if}
-					</button>
-				</span>
-			</li>
-		{:else}
-			Add a subject to start tracking!
-		{/each}
-	</ul>
-</div>
+					<span class="flex items-center gap-2">
+						<button
+							onclick={async () => {
+								if (editing === subject.id) {
+									saveRename(subject.id, subject.name);
+								} else {
+									editing = subject.id;
+									newName = subject.name;
+									await tick();
+									inputEl!.focus();
+									inputEl!.select();
+								}
+							}}
+							aria-label="rename subject"
+							class="text-gray-600"
+						>
+							{#if editing === subject.id}
+								<svg
+									class="h-6 w-6"
+									xmlns="http://www.w3.org/2000/svg"
+									width="8"
+									height="8"
+									viewBox="0 0 8 8"
+									><path
+										fill="currentColor"
+										d="m6.41 1l-.69.72L2.94 4.5l-.81-.78L1.41 3L0 4.41l.72.72l1.5 1.5l.69.72l.72-.72l3.5-3.5l.72-.72z"
+									/></svg
+								>
+							{:else}
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+									><path
+										fill="currentColor"
+										d="M3 21v-4.25L16.2 3.575q.3-.275.663-.425t.762-.15t.775.15t.65.45L20.425 5q.3.275.438.65T21 6.4q0 .4-.137.763t-.438.662L7.25 21zM17.6 7.8L19 6.4L17.6 5l-1.4 1.4z"
+									/></svg
+								>
+							{/if}
+						</button>
+						<button
+							aria-label="delete"
+							class="text-gray-600"
+							onclick={() => {
+								if (editing === subject.id) {
+									editing = '';
+									newName = '';
+								} else {
+									showDeleteModal = true;
+									subjectToDelete = subject.id;
+									subjectToDeleteName = subject.name;
+								}
+							}}
+						>
+							{#if editing === subject.id}
+								<svg
+									class="h-6 w-6"
+									xmlns="http://www.w3.org/2000/svg"
+									width="15"
+									height="15"
+									viewBox="0 0 15 15"
+									><path
+										fill="currentColor"
+										d="M3.64 2.27L7.5 6.13l3.84-3.84A.92.92 0 0 1 12 2a1 1 0 0 1 1 1a.9.9 0 0 1-.27.66L8.84 7.5l3.89 3.89A.9.9 0 0 1 13 12a1 1 0 0 1-1 1a.92.92 0 0 1-.69-.27L7.5 8.87l-3.85 3.85A.92.92 0 0 1 3 13a1 1 0 0 1-1-1a.9.9 0 0 1 .27-.66L6.16 7.5L2.27 3.61A.9.9 0 0 1 2 3a1 1 0 0 1 1-1c.24.003.47.1.64.27"
+									/></svg
+								>
+							{:else}
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+									><path
+										fill="currentColor"
+										d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6z"
+									/></svg
+								>
+							{/if}
+						</button>
+					</span>
+				</li>
+			{:else}
+				Add a subject to start tracking!
+			{/each}
+		</ul>
+	</div>
+{/if}
 
 {#if subjects.length}
 	<p class="text-center">
