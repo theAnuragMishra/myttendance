@@ -114,25 +114,19 @@
 	<Spinner />
 {:else}
 	<div class="flex flex-col gap-4">
-		<div class="mb-2 flex flex-col gap-3.5">
+		<div class="mb-2 flex flex-col gap-4">
 			<button
 				aria-label="go back"
-				class="secondary flex w-fit items-center justify-center"
+				class="flex w-fit items-center justify-center rounded-lg bg-(--primary-light) px-2 py-1 text-(--primary)"
 				onclick={goBack}
 				><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
 					><path fill="currentColor" fill-rule="evenodd" d="m16 5l-8 7l8 7z" /></svg
 				>Back</button
 			>
-			<span class="flex justify-between"
-				><h2 class="text-2xl">{subject?.name}</h2>
-				<span class="flex items-center gap-1"
-					><span class="rounded-lg bg-gray-800 px-2 py-1 text-white"
-						>{present}P/{absent}A ({total === 0 ? 0 : Math.round((present / total) * 100)}%)</span
-					><button
-						onclick={() => (showModal = true)}
-						class="danger flex h-full w-fit items-center gap-1 rounded-lg px-2 py-1"
-						aria-label="clear attendance data">Clear</button
-					></span
+			<span class="flex justify-between gap-2"
+				><h2 class="max-w-[55%] text-2xl">{subject?.name}</h2>
+				<span class="h-fit rounded-lg bg-gray-800 px-2 py-1 text-center text-white"
+					>{present}P/{absent}A ({total === 0 ? 0 : Math.round((present / total) * 100)}%)</span
 				></span
 			>
 		</div>
@@ -227,7 +221,13 @@
 				</button>
 			</div>
 		</div>
+		<p class="text-center">
+			<button onclick={() => (showModal = true)} class="text-(--primary) underline"
+				>Clear All</button
+			>
+		</p>
 	</div>
+
 	<Modal bind:showModal>
 		{#snippet confirmButton()}
 			<button

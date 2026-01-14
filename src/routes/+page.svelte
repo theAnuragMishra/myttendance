@@ -133,10 +133,10 @@
 						/>
 					{:else}
 						<button
-							class={`border border-black px-4 py-2.5 ${(subject.total != 0 ? Math.round((subject.present / subject.total) * 100) : 0) >= 75 ? 'bg-[#4ade80]' : 'bg-[#f87171]'} flex w-full justify-between`}
+							class={`border border-black px-4 py-2.5 ${(subject.total != 0 ? Math.round((subject.present / subject.total) * 100) : 0) >= 75 ? 'bg-[#4ade80]' : 'bg-[#f87171]'} flex w-full justify-between gap-2`}
 							onclick={() => openSubject(subject.id)}
 						>
-							<span>{subject.name}</span>
+							<span class="text-left">{subject.name}</span>
 							<span
 								>{subject.total != 0
 									? Math.round((subject.present / subject.total) * 100)
