@@ -1,8 +1,16 @@
 <script lang="ts">
 	import './layout.css';
 	import './global.css';
+	import { onMount } from 'svelte';
 
 	let { children } = $props();
+	onMount(async () => {
+		// console.log(navigator.storage, navigator.storage.persist, 'hi');
+		if (navigator.storage && navigator.storage.persist) {
+			await navigator.storage.persist();
+			// console.log(`Persistent storage granted: ${isPersisted}`);
+		}
+	});
 </script>
 
 <svelte:head>
