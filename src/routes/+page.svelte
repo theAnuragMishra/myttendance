@@ -81,6 +81,7 @@
 	let editing = $state('');
 	let newName = $state('');
 	let inputEl: HTMLInputElement | undefined = $state();
+	let openMenuFor = $state<string | null>(null);
 
 	async function saveRename(id: string, oldName: string) {
 		editing = '';
@@ -93,6 +94,20 @@
 
 	let showSortModal = $state(false);
 	let showClearModal = $state(false);
+
+	onMount(() => {
+		const onPointerDown = (e: PointerEvent) => {
+			if (!openMenuFor) return;
+			const target = e.target as HTMLElement | null;
+			if (!target) return;
+
+			const root = target.closest(`[data-menu-root="${openMenuFor}"]`);
+			if (!root) openMenuFor = null;
+		};
+
+		window.addEventListener('pointerdown', onPointerDown, true);
+		return () => window.removeEventListener('pointerdown', onPointerDown, true);
+	});
 </script>
 
 <div class="flex items-center justify-between">
@@ -102,7 +117,7 @@
 
 <div class="card flex items-center gap-2">
 	<input
-		onkeydown={(e) => {
+		onkeydown={(e: KeyboardEvent) => {
 			if (e.key === 'Enter') handleAddSubject();
 		}}
 		class="primary w-full"
@@ -127,7 +142,7 @@
 							class={`flex w-full justify-between border border-black px-4 py-2.5 text-[14px]`}
 							type="text"
 							bind:value={newName}
-							onkeydown={(e) => {
+							onkeydown={(e: KeyboardEvent) => {
 								if (e.key === 'Enter') saveRename(subject.id, subject.name);
 							}}
 						/>
@@ -145,79 +160,102 @@
 						</button>
 					{/if}
 
-					<span class="flex items-center gap-2">
-						<button
-							onclick={async () => {
-								if (editing === subject.id) {
-									saveRename(subject.id, subject.name);
-								} else {
-									editing = subject.id;
-									newName = subject.name;
-									await tick();
-									inputEl!.focus();
-									inputEl!.select();
-								}
-							}}
-							aria-label="rename subject"
-							class="text-gray-600"
-						>
-							{#if editing === subject.id}
+					{#if editing === subject.id}
+						<span class="flex items-center gap-2">
+							<button
+								onclick={() => saveRename(subject.id, subject.name)}
+								aria-label="save rename"
+								class="text-gray-600"
+							>
 								<svg
 									class="h-6 w-6"
 									xmlns="http://www.w3.org/2000/svg"
 									width="8"
 									height="8"
 									viewBox="0 0 8 8"
-									><path
+								>
+									<path
 										fill="currentColor"
 										d="m6.41 1l-.69.72L2.94 4.5l-.81-.78L1.41 3L0 4.41l.72.72l1.5 1.5l.69.72l.72-.72l3.5-3.5l.72-.72z"
-									/></svg
-								>
-							{:else}
-								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-									><path
-										fill="currentColor"
-										d="M3 21v-4.25L16.2 3.575q.3-.275.663-.425t.762-.15t.775.15t.65.45L20.425 5q.3.275.438.65T21 6.4q0 .4-.137.763t-.438.662L7.25 21zM17.6 7.8L19 6.4L17.6 5l-1.4 1.4z"
-									/></svg
-								>
-							{/if}
-						</button>
-						<button
-							aria-label="delete"
-							class="text-gray-600"
-							onclick={() => {
-								if (editing === subject.id) {
+									/>
+								</svg>
+							</button>
+							<button
+								aria-label="cancel rename"
+								class="text-gray-600"
+								onclick={() => {
 									editing = '';
 									newName = '';
-								} else {
-									showDeleteModal = true;
-									subjectToDelete = subject.id;
-									subjectToDeleteName = subject.name;
-								}
-							}}
-						>
-							{#if editing === subject.id}
+								}}
+							>
 								<svg
 									class="h-6 w-6"
 									xmlns="http://www.w3.org/2000/svg"
 									width="15"
 									height="15"
 									viewBox="0 0 15 15"
-									><path
+								>
+									<path
 										fill="currentColor"
 										d="M3.64 2.27L7.5 6.13l3.84-3.84A.92.92 0 0 1 12 2a1 1 0 0 1 1 1a.9.9 0 0 1-.27.66L8.84 7.5l3.89 3.89A.9.9 0 0 1 13 12a1 1 0 0 1-1 1a.92.92 0 0 1-.69-.27L7.5 8.87l-3.85 3.85A.92.92 0 0 1 3 13a1 1 0 0 1-1-1a.9.9 0 0 1 .27-.66L6.16 7.5L2.27 3.61A.9.9 0 0 1 2 3a1 1 0 0 1 1-1c.24.003.47.1.64.27"
-									/></svg
-								>
-							{:else}
-								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-									><path
+									/>
+								</svg>
+							</button>
+						</span>
+					{:else}
+						<span class="relative flex items-center" data-menu-root={subject.id}>
+							<button
+								class="rounded-lg p-2 text-gray-700 active:bg-gray-100"
+								aria-label="subject actions"
+								aria-haspopup="menu"
+								aria-expanded={openMenuFor === subject.id}
+								onclick={() => {
+									openMenuFor = openMenuFor === subject.id ? null : subject.id;
+								}}
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+									<path
 										fill="currentColor"
-										d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6z"
-									/></svg
+										d="M12 16a2 2 0 1 0 0 4a2 2 0 0 0 0-4m0-6a2 2 0 1 0 0 4a2 2 0 0 0 0-4m0-6a2 2 0 1 0 0 4a2 2 0 0 0 0-4"
+									/>
+								</svg>
+							</button>
+
+							{#if openMenuFor === subject.id}
+								<div
+									class="absolute top-full right-0 z-50 mt-1 w-24 overflow-hidden rounded-lg border border-(--border) bg-white shadow-lg"
+									role="menu"
 								>
+									<button
+										role="menuitem"
+										class="w-full px-3 py-2.5 text-left text-[14px] text-(--text) active:bg-gray-100"
+										onclick={async () => {
+											openMenuFor = null;
+											editing = subject.id;
+											newName = subject.name;
+											await tick();
+											inputEl!.focus();
+											inputEl!.select();
+										}}
+									>
+										Rename
+									</button>
+									<button
+										role="menuitem"
+										class="w-full px-3 py-2.5 text-left text-[14px] text-(--danger) active:bg-gray-100"
+										onclick={() => {
+											openMenuFor = null;
+											showDeleteModal = true;
+											subjectToDelete = subject.id;
+											subjectToDeleteName = subject.name;
+										}}
+									>
+										Delete
+									</button>
+								</div>
 							{/if}
-						</button>
-					</span>
+						</span>
+					{/if}
 				</li>
 			{:else}
 				Add a subject to start tracking!
