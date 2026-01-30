@@ -135,7 +135,7 @@
 	<div class="card">
 		<ul class="space-y-2">
 			{#each sortedSubjects as subject (subject.id)}
-				<li class={`flex justify-between gap-5`}>
+				<li class={`flex justify-between gap-2`}>
 					{#if editing === subject.id}
 						<input
 							bind:this={inputEl}
@@ -148,7 +148,7 @@
 						/>
 					{:else}
 						<button
-							class={`border border-black px-4 py-2.5 ${(subject.total != 0 ? Math.round((subject.present / subject.total) * 100) : 0) >= 75 ? 'bg-[#4ade80]' : 'bg-[#f87171]'} flex w-full justify-between gap-2`}
+							class={`rounded-lg border border-black px-4 py-2.5 ${(subject.total != 0 ? Math.round((subject.present / subject.total) * 100) : 0) >= 75 ? 'bg-[#4ade80]' : 'bg-[#f87171]'} flex w-full justify-between gap-2`}
 							onclick={() => openSubject(subject.id)}
 						>
 							<span class="text-left">{subject.name}</span>
@@ -205,7 +205,7 @@
 					{:else}
 						<span class="relative flex items-center" data-menu-root={subject.id}>
 							<button
-								class="rounded-lg p-2 text-gray-700 active:bg-gray-100"
+								class="rounded-lg text-gray-700 active:bg-gray-100"
 								aria-label="subject actions"
 								aria-haspopup="menu"
 								aria-expanded={openMenuFor === subject.id}
