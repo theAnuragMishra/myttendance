@@ -94,21 +94,18 @@
 
 	let showSortModal = $state(false);
 	let showClearModal = $state(false);
-
-	onMount(() => {
-		const onPointerDown = (e: PointerEvent) => {
-			if (!openMenuFor) return;
-			const target = e.target as HTMLElement | null;
-			if (!target) return;
-
-			const root = target.closest(`[data-menu-root="${openMenuFor}"]`);
-			if (!root) openMenuFor = null;
-		};
-
-		window.addEventListener('pointerdown', onPointerDown, true);
-		return () => window.removeEventListener('pointerdown', onPointerDown, true);
-	});
 </script>
+
+{#if openMenuFor}
+	<div
+		class="fixed inset-0 z-40 bg-black/5"
+		onpointerdown={(e: PointerEvent) => {
+			e.preventDefault();
+			e.stopImmediatePropagation();
+			openMenuFor = null;
+		}}
+	></div>
+{/if}
 
 <div class="flex items-center justify-between">
 	<h1 class="mb-4 text-2xl">myttendance</h1>
@@ -203,7 +200,10 @@
 							</button>
 						</span>
 					{:else}
-						<span class="relative flex items-center" data-menu-root={subject.id}>
+						<span
+							class={`relative flex items-center ${openMenuFor === subject.id ? 'z-50' : ''}`}
+							data-menu-root={subject.id}
+						>
 							<button
 								class="rounded-lg text-gray-700 active:bg-gray-100"
 								aria-label="subject actions"
