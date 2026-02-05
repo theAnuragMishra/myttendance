@@ -365,7 +365,7 @@
 	<!-- Add Timetable Slot Modal -->
 	<Modal bind:showModal={showAddSlotModal}>
 		{#snippet confirmButton()}
-			<button class="primary px-4 py-1" onclick={handleAddSlot}>Add</button>
+			<button class="bg-(--primary) px-4 py-1 text-white" onclick={handleAddSlot}>Add</button>
 		{/snippet}
 
 		<h1 class="mb-4 text-xl">Add Timetable Slot</h1>

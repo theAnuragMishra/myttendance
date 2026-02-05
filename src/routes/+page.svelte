@@ -17,15 +17,27 @@
 	let loading = $state(true);
 
 	//sort features
-	let sortOptions = [
-		{ type: 'name', value: 'Name' },
-		{ type: 'newest', value: 'Newest Date First' },
-		{ type: 'attendance_low', value: 'Lowest Attendance First' },
-		{ type: 'attendance_high', value: 'Highest Attendance First' }
-	];
+	let sortOptions = $derived.by(() => {
+		const baseOptions = [
+			{ type: 'name', value: 'Name' },
+			{ type: 'newest', value: 'Newest Date First' },
+			{ type: 'attendance_low', value: 'Lowest Attendance First' },
+			{ type: 'attendance_high', value: 'Highest Attendance First' }
+		];
 
-	let sortStrategy = $state(localStorage.getItem('sortStrategy') ?? 'newest');
+		if (timetableMode) {
+			baseOptions.push({ type: 'timetable', value: 'Timetable Order' });
+		}
+
+		return baseOptions;
+	});
+
+	let sortStrategyAll = $state(localStorage.getItem('sortStrategyAll') ?? 'newest');
+	let sortStrategyToday = $state(localStorage.getItem('sortStrategyToday') ?? 'timetable');
 	let timetableMode = $state(localStorage.getItem('timetableMode') === 'true');
+
+	// Use the appropriate sort strategy based on mode
+	let sortStrategy = $derived(timetableMode ? sortStrategyToday : sortStrategyAll);
 
 	function sortSubjects(strategy: string, subs: Array<SubjectWithAttendance>) {
 		//console.log(strategy);
@@ -43,6 +55,22 @@
 				// i first wrote the next line in flow but suddenly realised it's redundant. what a gotcha!
 				// if (a.present != b.present) return a.present - b.present;
 				return b.absent - a.absent;
+			});
+		} else if (strategy === 'timetable') {
+			// Sort by earliest time slot today
+			const today = new Date().getDay();
+			sorted.sort((a, b) => {
+				const aSlotsToday = a.timetableSlots?.filter((slot) => slot.dayOfWeek === today) ?? [];
+				const bSlotsToday = b.timetableSlots?.filter((slot) => slot.dayOfWeek === today) ?? [];
+
+				if (aSlotsToday.length === 0 && bSlotsToday.length === 0) return 0;
+				if (aSlotsToday.length === 0) return 1;
+				if (bSlotsToday.length === 0) return -1;
+
+				const aEarliest = Math.min(...aSlotsToday.map((s) => s.startHour));
+				const bEarliest = Math.min(...bSlotsToday.map((s) => s.startHour));
+
+				return aEarliest - bEarliest;
 			});
 		} else {
 			sorted.sort((a, b) => {
@@ -346,11 +374,18 @@
 	{#snippet confirmButton()}{/snippet}
 	<div class="mb-4 flex items-center justify-end gap-2">
 		<span>Sort By:</span><select
-			onchange={() => {
-				localStorage.setItem('sortStrategy', sortStrategy);
+			onchange={(e) => {
+				const value = e.currentTarget.value;
+				if (timetableMode) {
+					sortStrategyToday = value;
+					localStorage.setItem('sortStrategyToday', value);
+				} else {
+					sortStrategyAll = value;
+					localStorage.setItem('sortStrategyAll', value);
+				}
 				showSortModal = false;
 			}}
-			bind:value={sortStrategy}
+			value={sortStrategy}
 			class="w-fit border px-2 py-0.5"
 		>
 			{#each sortOptions as opt}
