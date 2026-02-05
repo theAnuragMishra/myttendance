@@ -6,7 +6,15 @@
 		getAttendance,
 		getSubjectById,
 		clearAttendanceForSubject,
-		type Subject
+		getTimetableSlotsForSubject,
+		addTimetableSlot,
+		deleteTimetableSlot,
+		checkSlotOverlap,
+		TIME_SLOTS,
+		DAYS_OF_WEEK,
+		formatTimeSlot,
+		type Subject,
+		type TimetableSlot
 	} from '$lib/db';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -77,8 +85,68 @@
 	onMount(async () => {
 		await loadSubject();
 		await loadCalendar();
+		await loadTimetableSlots();
 		loading = false;
 	});
+
+	const loadTimetableSlots = async () => {
+		timetableSlots = await getTimetableSlotsForSubject(subjectId);
+	};
+
+	function openAddSlotModal() {
+		selectedDay = null;
+		selectedStartHour = null;
+		selectedEndHour = null;
+		slotError = '';
+		showAddSlotModal = true;
+	}
+
+	async function handleAddSlot() {
+		if (selectedDay === null || selectedStartHour === null || selectedEndHour === null) {
+			slotError = 'Please select day and time';
+			return;
+		}
+
+		if (selectedEndHour <= selectedStartHour) {
+			slotError = 'End time must be after start time';
+			return;
+		}
+
+		try {
+			const hasOverlap = await checkSlotOverlap(selectedDay, selectedStartHour, selectedEndHour);
+
+			if (hasOverlap) {
+				slotError = 'This time slot overlaps with another class';
+				return;
+			}
+
+			await addTimetableSlot(subjectId, selectedDay, selectedStartHour, selectedEndHour);
+			await loadTimetableSlots();
+			showAddSlotModal = false;
+			slotError = '';
+		} catch (error) {
+			slotError = error instanceof Error ? error.message : 'Failed to add slot';
+		}
+	}
+
+	function confirmDeleteSlot(slot: TimetableSlot) {
+		slotToDelete = slot;
+		showDeleteSlotModal = true;
+	}
+
+	async function handleDeleteSlot() {
+		if (!slotToDelete) return;
+		await deleteTimetableSlot(slotToDelete.id);
+		await loadTimetableSlots();
+		showDeleteSlotModal = false;
+		slotToDelete = null;
+	}
+
+	function getSlotDisplayText(slot: TimetableSlot): string {
+		const day = DAYS_OF_WEEK.find((d) => d.value === slot.dayOfWeek);
+		const time = formatTimeSlot(slot.startHour, slot.endHour);
+		return `${day?.label}, ${time}`;
+	}
 
 	const handleSetAttendance = async (status: 'present' | 'absent', count: number) => {
 		if (!daySelected || !subject) return;
@@ -108,6 +176,24 @@
 	let showModal = $state(false);
 
 	let daySelected: CalendarCell | null = $state(null);
+
+	// Timetable state
+	let timetableSlots: TimetableSlot[] = $state([]);
+	let sortedTimeTableSlots = $derived(
+		[...timetableSlots].sort((a, b) => {
+			if (a.dayOfWeek !== b.dayOfWeek) return a.dayOfWeek - b.dayOfWeek;
+			return a.startHour - b.startHour;
+		})
+	);
+	let showAddSlotModal = $state(false);
+	let showDeleteSlotModal = $state(false);
+	let slotToDelete: TimetableSlot | null = $state(null);
+
+	// Form state for adding slot
+	let selectedDay = $state<number | null>(null);
+	let selectedStartHour = $state<number | null>(null);
+	let selectedEndHour = $state<number | null>(null);
+	let slotError = $state('');
 </script>
 
 {#if loading}
@@ -221,11 +307,41 @@
 				</button>
 			</div>
 		</div>
+
 		<p class="text-center">
 			<button onclick={() => (showModal = true)} class="text-(--primary) underline"
 				>Clear All</button
 			>
 		</p>
+
+		<!-- Timetable Section -->
+		<div class="card">
+			<div class="mb-3 flex items-center justify-between">
+				<h3 class="text-lg font-medium">Timetable</h3>
+				<button
+					class="rounded-sm bg-(--primary-light) px-3 py-1 text-sm text-(--primary)"
+					onclick={openAddSlotModal}>Add Slot</button
+				>
+			</div>
+
+			{#if timetableSlots.length === 0}
+				<p class="text-center text-sm text-gray-600">No timetable slots added yet</p>
+			{:else}
+				<ul class="space-y-2">
+					{#each sortedTimeTableSlots as slot (slot.id)}
+						<li class="flex items-center justify-between rounded border border-gray-300 px-3 py-2">
+							<span class="text-sm">{getSlotDisplayText(slot)}</span>
+							<button
+								class="text-sm text-(--danger) underline"
+								onclick={() => confirmDeleteSlot(slot)}
+							>
+								Delete
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
 	</div>
 
 	<Modal bind:showModal>
@@ -245,4 +361,71 @@
 			{`This will permanently delete all attendance records for the subject!`}
 		</p></Modal
 	>
+
+	<!-- Add Timetable Slot Modal -->
+	<Modal bind:showModal={showAddSlotModal}>
+		{#snippet confirmButton()}
+			<button class="primary px-4 py-1" onclick={handleAddSlot}>Add</button>
+		{/snippet}
+
+		<h1 class="mb-4 text-xl">Add Timetable Slot</h1>
+
+		{#if slotError}
+			<p class="mb-3 rounded bg-red-100 px-3 py-2 text-sm text-red-700">{slotError}</p>
+		{/if}
+
+		<div class="mb-4 flex flex-col gap-3">
+			<div>
+				<label for="tt-day" class="mb-1 block text-sm font-medium">Day</label>
+				<select
+					id="tt-day"
+					bind:value={selectedDay}
+					class="w-full rounded border border-gray-300 px-3 py-2"
+				>
+					<option value={null}>Select day...</option>
+					{#each DAYS_OF_WEEK as day}
+						<option value={day.value}>{day.label}</option>
+					{/each}
+				</select>
+			</div>
+
+			<div>
+				<label for="tt-start-hr" class="mb-1 block text-sm font-medium">Start Time</label>
+				<select
+					id="tt-start-hr"
+					bind:value={selectedStartHour}
+					class="w-full rounded border border-gray-300 px-3 py-2"
+				>
+					<option value={null}>Select start...</option>
+					{#each TIME_SLOTS as slot}
+						<option value={slot.start}>{slot.start}:00</option>
+					{/each}
+				</select>
+			</div>
+
+			<div>
+				<label for="tt-end-hr" class="mb-1 block text-sm font-medium">End Time</label>
+				<select
+					id="tt-end-hr"
+					bind:value={selectedEndHour}
+					class="w-full rounded border border-gray-300 px-3 py-2"
+				>
+					<option value={null}>Select end...</option>
+					{#each TIME_SLOTS as slot}
+						<option value={slot.end}>{slot.end}:00</option>
+					{/each}
+				</select>
+			</div>
+		</div>
+	</Modal>
+
+	<!-- Delete Slot Confirmation Modal -->
+	<Modal bind:showModal={showDeleteSlotModal}>
+		{#snippet confirmButton()}
+			<button class="danger px-4 py-1" onclick={handleDeleteSlot}>Delete</button>
+		{/snippet}
+
+		<h1 class="mb-2 text-xl">Remove Timetable Slot?</h1>
+		<p class="mb-4">{slotToDelete ? getSlotDisplayText(slotToDelete) : ''}</p>
+	</Modal>
 {/if}

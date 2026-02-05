@@ -11,6 +11,7 @@ export interface SubjectWithAttendance extends Subject {
 	absent: number;
 	total: number;
 	daysToGreen: number;
+	timetableSlots?: TimetableSlot[];
 }
 
 export interface Attendance {
@@ -21,9 +22,44 @@ export interface Attendance {
 	absent: number;
 }
 
+export interface TimetableSlot {
+	id: string;
+	subjectId: string;
+	dayOfWeek: number; // 0=Sunday, 1=Monday, ..., 6=Saturday
+	startHour: number; // 6-19 (24-hour format)
+	endHour: number; // 6-19 (24-hour format)
+}
+
+export const TIME_SLOTS = [
+	{ start: 6, end: 7 },
+	{ start: 7, end: 8 },
+	{ start: 8, end: 9 },
+	{ start: 9, end: 10 },
+	{ start: 10, end: 11 },
+	{ start: 11, end: 12 },
+	{ start: 12, end: 13 },
+	{ start: 13, end: 14 },
+	{ start: 14, end: 15 },
+	{ start: 15, end: 16 },
+	{ start: 16, end: 17 },
+	{ start: 17, end: 18 },
+	{ start: 18, end: 19 }
+];
+
+export const DAYS_OF_WEEK = [
+	{ value: 0, label: 'Sunday' },
+	{ value: 1, label: 'Monday' },
+	{ value: 2, label: 'Tuesday' },
+	{ value: 3, label: 'Wednesday' },
+	{ value: 4, label: 'Thursday' },
+	{ value: 5, label: 'Friday' },
+	{ value: 6, label: 'Saturday' }
+];
+
 export const db = new Dexie('attendanceDB') as Dexie & {
 	subjects: EntityTable<Subject, 'id'>;
 	attendance: EntityTable<Attendance, 'id'>;
+	timetableSlots: EntityTable<TimetableSlot, 'id'>;
 };
 
 db.version(1).stores({
@@ -50,6 +86,12 @@ db.version(2)
 			});
 	});
 
+db.version(3).stores({
+	subjects: 'id, name, createdAt',
+	attendance: 'id, [subjectId+date], subjectId, date',
+	timetableSlots: 'id, subjectId, [subjectId+dayOfWeek], [dayOfWeek+startHour]'
+});
+
 export const uuid = () => crypto.randomUUID();
 
 export const calculateDaysToGreen = (
@@ -63,10 +105,79 @@ export const calculateDaysToGreen = (
 	const currentPercent = (present / total) * 100;
 	if (currentPercent >= targetPercent) return 0;
 
-	// Calculate consecutive present days needed to reach target
-	// Solve: (present + x) / (total + x) >= targetPercent/100
 	const daysNeeded = Math.ceil((targetPercent * total - present * 100) / (100 - targetPercent));
 	return Math.max(0, daysNeeded);
+};
+
+export const formatTimeSlot = (startHour: number, endHour: number): string => {
+	return `${startHour}-${endHour}`;
+};
+
+export const getTodaysSlots = (slots: TimetableSlot[]): TimetableSlot[] => {
+	const today = new Date().getDay();
+	return slots.filter((slot) => slot.dayOfWeek === today);
+};
+
+export const getTodaysTimeString = (slots: TimetableSlot[]): string => {
+	const todaysSlots = getTodaysSlots(slots);
+	if (!todaysSlots.length) return '';
+	return todaysSlots
+		.sort((a, b) => a.startHour - b.startHour)
+		.map((s) => formatTimeSlot(s.startHour, s.endHour))
+		.join(', ');
+};
+
+export const checkSlotOverlap = async (
+	dayOfWeek: number,
+	startHour: number,
+	endHour: number,
+	excludeSlotId?: string
+): Promise<boolean> => {
+	const allSlots = await db.timetableSlots.where('dayOfWeek').equals(dayOfWeek).toArray();
+
+	return allSlots.some((slot) => {
+		if (slot.id === excludeSlotId) return false;
+		// Two ranges overlap if: start1 < end2 AND end1 > start2
+		return startHour < slot.endHour && endHour > slot.startHour;
+	});
+};
+
+export const addTimetableSlot = async (
+	subjectId: string,
+	dayOfWeek: number,
+	startHour: number,
+	endHour: number
+): Promise<TimetableSlot> => {
+	const hasOverlap = await checkSlotOverlap(dayOfWeek, startHour, endHour);
+	if (hasOverlap) {
+		throw new Error('Time slot overlaps with an existing class');
+	}
+
+	const slot: TimetableSlot = {
+		id: uuid(),
+		subjectId,
+		dayOfWeek,
+		startHour,
+		endHour
+	};
+
+	await db.timetableSlots.add(slot);
+	return slot;
+};
+
+export const getTimetableSlotsForSubject = async (subjectId: string): Promise<TimetableSlot[]> => {
+	return db.timetableSlots.where('subjectId').equals(subjectId).toArray();
+};
+
+export const deleteTimetableSlot = async (id: string): Promise<void> => {
+	await db.timetableSlots.delete(id);
+};
+
+export const getTodaysSubjectIds = async (): Promise<string[]> => {
+	const today = new Date().getDay();
+	const todaysSlots = await db.timetableSlots.where('dayOfWeek').equals(today).toArray();
+
+	return [...new Set(todaysSlots.map((s) => s.subjectId))];
 };
 
 export const addSubject = async (name: string) => {
@@ -76,10 +187,12 @@ export const addSubject = async (name: string) => {
 };
 
 export const deleteSubject = async (subjectId: string) => {
-	return db.transaction('rw', db.subjects, db.attendance, async () => {
+	return db.transaction('rw', db.subjects, db.attendance, db.timetableSlots, async () => {
 		await db.subjects.delete(subjectId);
 
 		await db.attendance.where('subjectId').equals(subjectId).delete();
+
+		await db.timetableSlots.where('subjectId').equals(subjectId).delete();
 	});
 };
 
@@ -95,7 +208,9 @@ export const getSubjectById = (id: string) => {
 	return db.subjects.get(id);
 };
 
-export const getAllSubjects = async (): Promise<SubjectWithAttendance[]> => {
+export const getAllSubjects = async (
+	includeTimetable = false
+): Promise<SubjectWithAttendance[]> => {
 	const subjects = await db.subjects.orderBy('createdAt').reverse().toArray();
 
 	const subjectsWithAttendance = await Promise.all(
@@ -103,13 +218,19 @@ export const getAllSubjects = async (): Promise<SubjectWithAttendance[]> => {
 			const { present, absent } = await getAttendance(s.id);
 			const total = present + absent;
 
-			return {
+			const result: SubjectWithAttendance = {
 				...s,
 				present,
 				absent,
 				total,
 				daysToGreen: calculateDaysToGreen(present, absent)
 			};
+
+			if (includeTimetable) {
+				result.timetableSlots = await getTimetableSlotsForSubject(s.id);
+			}
+
+			return result;
 		})
 	);
 

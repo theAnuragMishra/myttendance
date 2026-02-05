@@ -1,6 +1,13 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { addSubject, clearAllData, deleteSubject, getAllSubjects, renameSubject } from '$lib/db';
+	import {
+		addSubject,
+		clearAllData,
+		deleteSubject,
+		getAllSubjects,
+		renameSubject,
+		getTodaysTimeString
+	} from '$lib/db';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { SubjectWithAttendance } from '$lib/db.js';
@@ -18,6 +25,7 @@
 	];
 
 	let sortStrategy = $state(localStorage.getItem('sortStrategy') ?? 'newest');
+	let timetableMode = $state(localStorage.getItem('timetableMode') === 'true');
 
 	function sortSubjects(strategy: string, subs: Array<SubjectWithAttendance>) {
 		//console.log(strategy);
@@ -52,11 +60,30 @@
 	let sortedSubjects: Array<SubjectWithAttendance> = $derived.by(() =>
 		sortSubjects(sortStrategy, subjects)
 	);
+	let filteredSubjects: Array<SubjectWithAttendance> = $derived.by(() => {
+		let filtered = sortedSubjects;
+
+		if (timetableMode) {
+			const today = new Date().getDay();
+			filtered = filtered.filter((subject) => {
+				const todaysSlots =
+					subject.timetableSlots?.filter((slot) => slot.dayOfWeek === today) ?? [];
+				return todaysSlots.length > 0;
+			});
+		}
+
+		return filtered;
+	});
 	let newSubject = $state('');
 
 	const loadSubjects = async () => {
-		subjects = await getAllSubjects();
+		subjects = await getAllSubjects(true);
 	};
+
+	function toggleTimetableMode() {
+		timetableMode = !timetableMode;
+		localStorage.setItem('timetableMode', String(timetableMode));
+	}
 
 	onMount(async () => {
 		await loadSubjects();
@@ -109,7 +136,14 @@
 
 <div class="flex items-center justify-between">
 	<h1 class="mb-4 text-2xl">myttendance</h1>
-	<button onclick={() => (showSortModal = true)} class="text-(--primary) underline">Sort</button>
+	<div class="flex items-center gap-3">
+		<button onclick={toggleTimetableMode} class="text-(--primary) underline">
+			{timetableMode ? 'Today' : 'All'}
+		</button>
+		<button onclick={() => (showSortModal = true)} class="text-(--primary) underline">
+			Sort
+		</button>
+	</div>
 </div>
 
 <div class="card flex items-center gap-2">
@@ -131,7 +165,7 @@
 {:else}
 	<div class="card">
 		<ul class="space-y-2">
-			{#each sortedSubjects as subject (subject.id)}
+			{#each filteredSubjects as subject (subject.id)}
 				<li class={`flex justify-between gap-2`}>
 					{#if editing === subject.id}
 						<input
@@ -145,22 +179,31 @@
 						/>
 					{:else}
 						<button
-							class={`rounded-lg border border-black px-4 py-2.5 ${(subject.total != 0 ? Math.round((subject.present / subject.total) * 100) : 0) >= 75 ? 'bg-[#4ade80]' : 'bg-[#f87171]'} flex w-full justify-between gap-2`}
+							class={`rounded-lg border border-black px-4 py-2.5 ${(subject.total != 0 ? Math.round((subject.present / subject.total) * 100) : 0) >= 75 ? 'bg-[#4ade80]' : 'bg-[#f87171]'} flex w-full flex-col gap-1`}
 							onclick={() => openSubject(subject.id)}
 						>
-							<span class="text-left">{subject.name}</span>
-							<span class="flex flex-col items-end gap-0.5">
-								<span
-									>{subject.total != 0
-										? Math.round((subject.present / subject.total) * 100)
-										: 0}%</span
-								>
-								{#if subject.daysToGreen > 0}
-									<span class="text-[11px] opacity-80"
-										>{subject.daysToGreen} {subject.daysToGreen === 1 ? 'day' : 'days'} to 75%</span
-									>
-								{/if}
-							</span>
+							<div class="flex w-full items-start justify-between gap-2">
+								<span class="text-left font-medium">{subject.name}</span>
+								<span class="shrink-0">
+									{subject.total != 0 ? Math.round((subject.present / subject.total) * 100) : 0}%
+								</span>
+							</div>
+
+							{#if timetableMode || subject.daysToGreen > 0}
+								<div class="flex w-full items-end justify-between gap-2">
+									<span class="text-[11px] opacity-80">
+										{#if timetableMode && subject.timetableSlots}
+											{getTodaysTimeString(subject.timetableSlots)}
+										{/if}
+									</span>
+									<span class="shrink-0 text-[11px] opacity-80">
+										{#if subject.daysToGreen > 0}
+											{subject.daysToGreen}
+											{subject.daysToGreen === 1 ? 'day' : 'days'} to 75%
+										{/if}
+									</span>
+								</div>
+							{/if}
 						</button>
 					{/if}
 
@@ -265,7 +308,11 @@
 					{/if}
 				</li>
 			{:else}
-				Add a subject to start tracking!
+				{#if timetableMode}
+					<p class="text-center text-gray-600">No classes scheduled for today</p>
+				{:else}
+					<p class="text-center text-gray-600">Add a subject to start tracking!</p>
+				{/if}
 			{/each}
 		</ul>
 	</div>
