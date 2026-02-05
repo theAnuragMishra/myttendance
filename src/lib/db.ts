@@ -10,6 +10,7 @@ export interface SubjectWithAttendance extends Subject {
 	present: number;
 	absent: number;
 	total: number;
+	daysToGreen: number;
 }
 
 export interface Attendance {
@@ -51,6 +52,23 @@ db.version(2)
 
 export const uuid = () => crypto.randomUUID();
 
+export const calculateDaysToGreen = (
+	present: number,
+	absent: number,
+	targetPercent = 75
+): number => {
+	const total = present + absent;
+	if (total === 0) return 0;
+
+	const currentPercent = (present / total) * 100;
+	if (currentPercent >= targetPercent) return 0;
+
+	// Calculate consecutive present days needed to reach target
+	// Solve: (present + x) / (total + x) >= targetPercent/100
+	const daysNeeded = Math.ceil((targetPercent * total - present * 100) / (100 - targetPercent));
+	return Math.max(0, daysNeeded);
+};
+
 export const addSubject = async (name: string) => {
 	const subject = { id: uuid(), name, createdAt: Date.now() };
 	await db.subjects.add(subject);
@@ -83,12 +101,14 @@ export const getAllSubjects = async (): Promise<SubjectWithAttendance[]> => {
 	const subjectsWithAttendance = await Promise.all(
 		subjects.map(async (s) => {
 			const { present, absent } = await getAttendance(s.id);
+			const total = present + absent;
 
 			return {
 				...s,
 				present,
 				absent,
-				total: present + absent
+				total,
+				daysToGreen: calculateDaysToGreen(present, absent)
 			};
 		})
 	);

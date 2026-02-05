@@ -149,11 +149,18 @@
 							onclick={() => openSubject(subject.id)}
 						>
 							<span class="text-left">{subject.name}</span>
-							<span
-								>{subject.total != 0
-									? Math.round((subject.present / subject.total) * 100)
-									: 0}%</span
-							>
+							<span class="flex flex-col items-end gap-0.5">
+								<span
+									>{subject.total != 0
+										? Math.round((subject.present / subject.total) * 100)
+										: 0}%</span
+								>
+								{#if subject.daysToGreen > 0}
+									<span class="text-[11px] opacity-80"
+										>{subject.daysToGreen} {subject.daysToGreen === 1 ? 'day' : 'days'} to 75%</span
+									>
+								{/if}
+							</span>
 						</button>
 					{/if}
 
