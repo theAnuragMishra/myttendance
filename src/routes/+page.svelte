@@ -6,7 +6,8 @@
 		deleteSubject,
 		getAllSubjects,
 		renameSubject,
-		getTodaysTimeString
+		getTimeSlotsForDay,
+		DAYS_OF_WEEK
 	} from '$lib/db';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -35,9 +36,20 @@
 	let sortStrategyAll = $state(localStorage.getItem('sortStrategyAll') ?? 'newest');
 	let sortStrategyToday = $state(localStorage.getItem('sortStrategyToday') ?? 'timetable');
 	let timetableMode = $state(localStorage.getItem('timetableMode') === 'true');
+	let selectedDayOffset = $state(0);
 
-	// Use the appropriate sort strategy based on mode
 	let sortStrategy = $derived(timetableMode ? sortStrategyToday : sortStrategyAll);
+
+	let selectedDay = $derived.by(() => {
+		const today = new Date();
+		const targetDate = new Date(today);
+		targetDate.setDate(today.getDate() + selectedDayOffset);
+		return targetDate.getDay();
+	});
+
+	let selectedDayName = $derived(
+		DAYS_OF_WEEK.find((d) => d.value === selectedDay)?.label ?? 'Today'
+	);
 
 	function sortSubjects(strategy: string, subs: Array<SubjectWithAttendance>) {
 		//console.log(strategy);
@@ -57,11 +69,12 @@
 				return b.absent - a.absent;
 			});
 		} else if (strategy === 'timetable') {
-			// Sort by earliest time slot today
-			const today = new Date().getDay();
+			// Sort by earliest time slot for the selected day
 			sorted.sort((a, b) => {
-				const aSlotsToday = a.timetableSlots?.filter((slot) => slot.dayOfWeek === today) ?? [];
-				const bSlotsToday = b.timetableSlots?.filter((slot) => slot.dayOfWeek === today) ?? [];
+				const aSlotsToday =
+					a.timetableSlots?.filter((slot) => slot.dayOfWeek === selectedDay) ?? [];
+				const bSlotsToday =
+					b.timetableSlots?.filter((slot) => slot.dayOfWeek === selectedDay) ?? [];
 
 				if (aSlotsToday.length === 0 && bSlotsToday.length === 0) return 0;
 				if (aSlotsToday.length === 0) return 1;
@@ -92,10 +105,9 @@
 		let filtered = sortedSubjects;
 
 		if (timetableMode) {
-			const today = new Date().getDay();
 			filtered = filtered.filter((subject) => {
 				const todaysSlots =
-					subject.timetableSlots?.filter((slot) => slot.dayOfWeek === today) ?? [];
+					subject.timetableSlots?.filter((slot) => slot.dayOfWeek === selectedDay) ?? [];
 				return todaysSlots.length > 0;
 			});
 		}
@@ -111,6 +123,18 @@
 	function toggleTimetableMode() {
 		timetableMode = !timetableMode;
 		localStorage.setItem('timetableMode', String(timetableMode));
+	}
+
+	function goToPreviousDay() {
+		selectedDayOffset--;
+	}
+
+	function goToNextDay() {
+		selectedDayOffset++;
+	}
+
+	function goToToday() {
+		selectedDayOffset = 0;
 	}
 
 	onMount(async () => {
@@ -166,7 +190,7 @@
 	<h1 class="mb-4 text-2xl">myttendance</h1>
 	<div class="flex items-center gap-3">
 		<button onclick={toggleTimetableMode} class="text-(--primary) underline">
-			{timetableMode ? 'Today' : 'All'}
+			{timetableMode ? 'Day' : 'All'}
 		</button>
 		<button onclick={() => (showSortModal = true)} class="text-(--primary) underline">
 			Sort
@@ -187,6 +211,32 @@
 		>Add</button
 	>
 </div>
+
+{#if timetableMode}
+	<div class="my-2 flex w-full items-center justify-center gap-2">
+		<button
+			onclick={goToPreviousDay}
+			class="rounded-lg border border-(--border) p-1.5 active:bg-gray-100"
+			aria-label="Previous day"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+				<path fill="currentColor" d="M15.41 7.41L14 6l-6 6l6 6l1.41-1.41L10.83 12z" />
+			</svg>
+		</button>
+		<button onclick={goToToday} class="min-w-30 px-4 py-1.5 font-medium">
+			{selectedDayOffset === 0 ? 'Today' : selectedDayName}
+		</button>
+		<button
+			onclick={goToNextDay}
+			class="rounded-lg border border-(--border) p-1.5 active:bg-gray-100"
+			aria-label="Next day"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+				<path fill="currentColor" d="M10 6L8.59 7.41L13.17 12l-4.58 4.59L10 18l6-6z" />
+			</svg>
+		</button>
+	</div>
+{/if}
 
 {#if loading}
 	<Spinner />
@@ -221,7 +271,7 @@
 								<div class="flex w-full items-end justify-between gap-2">
 									<span class="text-[11px] opacity-80">
 										{#if timetableMode && subject.timetableSlots}
-											{getTodaysTimeString(subject.timetableSlots)}
+											{getTimeSlotsForDay(subject.timetableSlots, selectedDay)}
 										{/if}
 									</span>
 									<span class="shrink-0 text-[11px] opacity-80">
@@ -337,7 +387,9 @@
 				</li>
 			{:else}
 				{#if timetableMode}
-					<p class="text-center text-gray-600">No classes scheduled for today</p>
+					<p class="text-center text-gray-600">
+						No classes scheduled for {selectedDayOffset === 0 ? 'today' : selectedDayName}.
+					</p>
 				{:else}
 					<p class="text-center text-gray-600">Add a subject to start tracking!</p>
 				{/if}

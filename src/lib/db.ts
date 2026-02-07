@@ -127,6 +127,15 @@ export const getTodaysTimeString = (slots: TimetableSlot[]): string => {
 		.join(', ');
 };
 
+export const getTimeSlotsForDay = (slots: TimetableSlot[], dayOfWeek: number): string => {
+	const daySlots = slots.filter((slot) => slot.dayOfWeek === dayOfWeek);
+	if (!daySlots.length) return '';
+	return daySlots
+		.sort((a, b) => a.startHour - b.startHour)
+		.map((s) => formatTimeSlot(s.startHour, s.endHour))
+		.join(', ');
+};
+
 export const checkSlotOverlap = async (
 	dayOfWeek: number,
 	startHour: number,
