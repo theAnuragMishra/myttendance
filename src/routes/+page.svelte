@@ -4,149 +4,25 @@
 		addSubject,
 		clearAllData,
 		deleteSubject,
-		getAllSubjects,
 		renameSubject,
-		getTimeSlotsForDay,
-		DAYS_OF_WEEK
+		getTimeSlotsForDay
 	} from '$lib/db';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import type { SubjectWithAttendance } from '$lib/db.js';
+
 	import Modal from '$lib/components/Modal.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
-
-	let loading = $state(true);
-
-	//sort features
-	let sortOptions = $derived.by(() => {
-		const baseOptions = [
-			{ type: 'name', value: 'Name' },
-			{ type: 'newest', value: 'Newest Date First' },
-			{ type: 'attendance_low', value: 'Lowest Attendance First' },
-			{ type: 'attendance_high', value: 'Highest Attendance First' }
-		];
-
-		if (timetableMode) {
-			baseOptions.push({ type: 'timetable', value: 'Timetable Order' });
-		}
-
-		return baseOptions;
-	});
-
-	let sortStrategyAll = $state(localStorage.getItem('sortStrategyAll') ?? 'newest');
-	let sortStrategyToday = $state(localStorage.getItem('sortStrategyToday') ?? 'timetable');
-	let timetableMode = $state(localStorage.getItem('timetableMode') === 'true');
-	let selectedDayOffset = $state(0);
-
-	let sortStrategy = $derived(timetableMode ? sortStrategyToday : sortStrategyAll);
-
-	let selectedDay = $derived.by(() => {
-		const today = new Date();
-		const targetDate = new Date(today);
-		targetDate.setDate(today.getDate() + selectedDayOffset);
-		return targetDate.getDay();
-	});
-
-	let selectedDayName = $derived(
-		DAYS_OF_WEEK.find((d) => d.value === selectedDay)?.label ?? 'Today'
-	);
-
-	function sortSubjects(strategy: string, subs: Array<SubjectWithAttendance>) {
-		//console.log(strategy);
-		let sorted = [...subs];
-		if (!strategy || strategy === 'name') {
-			sorted.sort((a, b) => a.name.localeCompare(b.name));
-		} else if (strategy === 'newest') {
-			sorted.sort((a, b) => b.createdAt - a.createdAt);
-		} else if (strategy === 'attendance_low') {
-			sorted.sort((a, b) => {
-				let pa = a.total == 0 ? 0 : Math.round((a.present / a.total) * 100);
-				let pb = b.total == 0 ? 0 : Math.round((b.present / b.total) * 100);
-
-				if (pa != pb) return pa - pb;
-				// i first wrote the next line in flow but suddenly realised it's redundant. what a gotcha!
-				// if (a.present != b.present) return a.present - b.present;
-				return b.absent - a.absent;
-			});
-		} else if (strategy === 'timetable') {
-			// Sort by earliest time slot for the selected day
-			sorted.sort((a, b) => {
-				const aSlotsToday =
-					a.timetableSlots?.filter((slot) => slot.dayOfWeek === selectedDay) ?? [];
-				const bSlotsToday =
-					b.timetableSlots?.filter((slot) => slot.dayOfWeek === selectedDay) ?? [];
-
-				if (aSlotsToday.length === 0 && bSlotsToday.length === 0) return 0;
-				if (aSlotsToday.length === 0) return 1;
-				if (bSlotsToday.length === 0) return -1;
-
-				const aEarliest = Math.min(...aSlotsToday.map((s) => s.startHour));
-				const bEarliest = Math.min(...bSlotsToday.map((s) => s.startHour));
-
-				return aEarliest - bEarliest;
-			});
-		} else {
-			sorted.sort((a, b) => {
-				let pa = a.total == 0 ? 0 : Math.round((a.present / a.total) * 100);
-				let pb = b.total == 0 ? 0 : Math.round((b.present / b.total) * 100);
-				if (pa != pb) return pb - pa;
-				// if (a.present != b.present) return a.present - b.present;
-				return a.absent - b.absent;
-			});
-		}
-		return sorted;
-	}
-
-	let subjects: Array<SubjectWithAttendance> = $state([]);
-	let sortedSubjects: Array<SubjectWithAttendance> = $derived.by(() =>
-		sortSubjects(sortStrategy, subjects)
-	);
-	let filteredSubjects: Array<SubjectWithAttendance> = $derived.by(() => {
-		let filtered = sortedSubjects;
-
-		if (timetableMode) {
-			filtered = filtered.filter((subject) => {
-				const todaysSlots =
-					subject.timetableSlots?.filter((slot) => slot.dayOfWeek === selectedDay) ?? [];
-				return todaysSlots.length > 0;
-			});
-		}
-
-		return filtered;
-	});
-	let newSubject = $state('');
-
-	const loadSubjects = async () => {
-		subjects = await getAllSubjects(true);
-	};
-
-	function toggleTimetableMode() {
-		timetableMode = !timetableMode;
-		localStorage.setItem('timetableMode', String(timetableMode));
-	}
-
-	function goToPreviousDay() {
-		selectedDayOffset--;
-	}
-
-	function goToNextDay() {
-		selectedDayOffset++;
-	}
-
-	function goToToday() {
-		selectedDayOffset = 0;
-	}
+	import { appState } from '$lib/state.svelte';
 
 	onMount(async () => {
-		await loadSubjects();
-		loading = false;
+		await appState.initialize();
 	});
 
 	const handleAddSubject = async () => {
-		if (!newSubject.trim()) return;
-		await addSubject(newSubject);
-		newSubject = '';
-		await loadSubjects();
+		if (!appState.newSubject.trim()) return;
+		await addSubject(appState.newSubject);
+		appState.newSubject = '';
+		await appState.loadSubjects();
 	};
 
 	const openSubject = (id: string) => {
@@ -168,7 +44,7 @@
 		newName = '';
 		if (!trimmed || trimmed === oldName) return;
 		await renameSubject(id, trimmed);
-		await loadSubjects();
+		await appState.loadSubjects();
 	}
 
 	let showSortModal = $state(false);
@@ -189,8 +65,8 @@
 <div class="flex items-center justify-between">
 	<h1 class="mb-4 text-2xl">myttendance</h1>
 	<div class="flex items-center gap-3">
-		<button onclick={toggleTimetableMode} class="text-(--primary) underline">
-			{timetableMode ? 'Day' : 'All'}
+		<button onclick={appState.toggleTimetableMode} class="text-(--primary) underline">
+			{appState.timetableMode ? 'Day' : 'All'}
 		</button>
 		<button onclick={() => (showSortModal = true)} class="text-(--primary) underline">
 			Sort
@@ -204,18 +80,20 @@
 			if (e.key === 'Enter') handleAddSubject();
 		}}
 		class="primary w-full"
-		bind:value={newSubject}
+		bind:value={appState.newSubject}
 		placeholder="New subject name"
 	/>
-	<button class="primary" disabled={newSubject.trim().length == 0} onclick={handleAddSubject}
-		>Add</button
+	<button
+		class="primary"
+		disabled={appState.newSubject.trim().length == 0}
+		onclick={handleAddSubject}>Add</button
 	>
 </div>
 
-{#if timetableMode}
+{#if appState.timetableMode}
 	<div class="my-2 flex w-full items-center justify-center gap-2">
 		<button
-			onclick={goToPreviousDay}
+			onclick={appState.goToPreviousDay}
 			class="rounded-lg border border-(--border) p-1.5 active:bg-gray-100"
 			aria-label="Previous day"
 		>
@@ -223,11 +101,11 @@
 				<path fill="currentColor" d="M15.41 7.41L14 6l-6 6l6 6l1.41-1.41L10.83 12z" />
 			</svg>
 		</button>
-		<button onclick={goToToday} class="min-w-30 px-4 py-1.5 font-medium">
-			{selectedDayOffset === 0 ? 'Today' : selectedDayName}
+		<button onclick={appState.goToToday} class="min-w-30 px-4 py-1.5 font-medium">
+			{appState.selectedDayOffset === 0 ? 'Today' : appState.selectedDayName}
 		</button>
 		<button
-			onclick={goToNextDay}
+			onclick={appState.goToNextDay}
 			class="rounded-lg border border-(--border) p-1.5 active:bg-gray-100"
 			aria-label="Next day"
 		>
@@ -238,12 +116,12 @@
 	</div>
 {/if}
 
-{#if loading}
+{#if appState.loading}
 	<Spinner />
 {:else}
 	<div class="card">
 		<ul class="space-y-2">
-			{#each filteredSubjects as subject (subject.id)}
+			{#each appState.filteredSubjects as subject (subject.id)}
 				<li class={`flex justify-between gap-2`}>
 					{#if editing === subject.id}
 						<input
@@ -267,11 +145,11 @@
 								</span>
 							</div>
 
-							{#if timetableMode || subject.daysToGreen > 0}
+							{#if appState.timetableMode || subject.daysToGreen > 0}
 								<div class="flex w-full items-end justify-between gap-2">
 									<span class="text-[11px] opacity-80">
-										{#if timetableMode && subject.timetableSlots}
-											{getTimeSlotsForDay(subject.timetableSlots, selectedDay)}
+										{#if appState.timetableMode && subject.timetableSlots}
+											{getTimeSlotsForDay(subject.timetableSlots, appState.selectedDay)}
 										{/if}
 									</span>
 									<span class="shrink-0 text-[11px] opacity-80">
@@ -386,9 +264,11 @@
 					{/if}
 				</li>
 			{:else}
-				{#if timetableMode}
+				{#if appState.timetableMode}
 					<p class="text-center text-gray-600">
-						No classes scheduled for {selectedDayOffset === 0 ? 'today' : selectedDayName}.
+						No classes scheduled for {appState.selectedDayOffset === 0
+							? 'today'
+							: appState.selectedDayName}.
 					</p>
 				{:else}
 					<p class="text-center text-gray-600">Add a subject to start tracking!</p>
@@ -398,7 +278,7 @@
 	</div>
 {/if}
 
-{#if subjects.length}
+{#if appState.subjects.length}
 	<p class="text-center">
 		<button onclick={() => (showClearModal = true)} class="text-(--primary) underline"
 			>Clear All Subjects</button
@@ -412,7 +292,7 @@
 			class="danger px-4 py-1"
 			onclick={async () => {
 				await deleteSubject(subjectToDelete);
-				await loadSubjects();
+				await appState.loadSubjects();
 				showDeleteModal = false;
 			}}>Confirm</button
 		>
@@ -428,19 +308,19 @@
 		<span>Sort By:</span><select
 			onchange={(e) => {
 				const value = e.currentTarget.value;
-				if (timetableMode) {
-					sortStrategyToday = value;
+				if (appState.timetableMode) {
+					appState.sortStrategyToday = value;
 					localStorage.setItem('sortStrategyToday', value);
 				} else {
-					sortStrategyAll = value;
+					appState.sortStrategyAll = value;
 					localStorage.setItem('sortStrategyAll', value);
 				}
 				showSortModal = false;
 			}}
-			value={sortStrategy}
+			value={appState.sortStrategy}
 			class="w-fit border px-2 py-0.5"
 		>
-			{#each sortOptions as opt}
+			{#each appState.sortOptions as opt}
 				<option value={opt.type}>{opt.value}</option>
 			{/each}
 		</select>
@@ -453,7 +333,7 @@
 			class="danger px-4 py-1"
 			onclick={async () => {
 				await clearAllData();
-				await loadSubjects();
+				await appState.loadSubjects();
 				showClearModal = false;
 			}}>Confirm</button
 		>
