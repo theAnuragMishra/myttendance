@@ -54,11 +54,12 @@
 {#if openMenuFor}
 	<div
 		class="fixed inset-0 z-40 bg-black/5"
-		onpointerdown={(e: PointerEvent) => {
+		onclick={(e) => {
 			e.preventDefault();
 			e.stopImmediatePropagation();
 			openMenuFor = null;
 		}}
+		aria-hidden="true"
 	></div>
 {/if}
 
@@ -122,11 +123,11 @@
 	<div class="card">
 		<ul class="space-y-2">
 			{#each appState.filteredSubjects as subject (subject.id)}
-				<li class={`flex justify-between gap-2`}>
+				<li class="flex justify-between gap-2">
 					{#if editing === subject.id}
 						<input
 							bind:this={inputEl}
-							class={`flex w-full justify-between border border-black px-4 py-2.5 text-[14px]`}
+							class="flex w-full justify-between border border-black px-4 py-2.5 text-[14px]"
 							type="text"
 							bind:value={newName}
 							onkeydown={(e: KeyboardEvent) => {
@@ -299,7 +300,7 @@
 	{/snippet}
 	<h1 class="mb-2 text-2xl">{`Delete ${subjectToDeleteName}?`}</h1>
 
-	<p class="mb-4">{`This will permanently delete all attendance records for the subject!`}</p>
+	<p class="mb-4">This will permanently delete all attendance records for the subject!</p>
 </Modal>
 
 <Modal bind:showModal={showSortModal}>
@@ -338,9 +339,10 @@
 			}}>Confirm</button
 		>
 	{/snippet}
-	<h1 class="mb-2 text-2xl">{`Clear all subjects?`}</h1>
+	<h1 class="mb-2 text-2xl">Clear all subjects?</h1>
 
 	<p class="mb-4">
-		{`This will permanently delete all attendance records for all the subjects! Use this when you're starting a new semester.`}
+		This will permanently delete all attendance records for all the subjects! Use this when you're
+		starting a new semester.
 	</p>
 </Modal>
