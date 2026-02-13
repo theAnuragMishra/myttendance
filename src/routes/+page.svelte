@@ -14,10 +14,6 @@
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { appState } from '$lib/state.svelte';
 
-	onMount(async () => {
-		await appState.initialize();
-	});
-
 	const handleAddSubject = async () => {
 		if (!appState.newSubject.trim()) return;
 		await addSubject(appState.newSubject);
