@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { tick } from 'svelte';
 	import {
 		addSubject,
 		clearAllData,
@@ -113,7 +113,7 @@
 	</div>
 {/if}
 
-{#if appState.loading}
+{#if appState.loading !== false}
 	<Spinner />
 {:else}
 	<div class="card">
