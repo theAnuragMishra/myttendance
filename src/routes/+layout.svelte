@@ -2,7 +2,6 @@
 	import './layout.css';
 	import './global.css';
 	import { onMount } from 'svelte';
-	import { appState } from '$lib/state.svelte';
 
 	let { children } = $props();
 	onMount(async () => {
@@ -11,7 +10,6 @@
 			await navigator.storage.persist();
 			// console.log(`Persistent storage granted: ${isPersisted}`);
 		}
-		await appState.initialize();
 	});
 </script>
 

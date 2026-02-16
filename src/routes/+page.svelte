@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import {
 		addSubject,
 		clearAllData,
 		deleteSubject,
 		renameSubject,
-		getTimeSlotsForDay
+		getTimeSlotsForDay,
+		type SubjectWithAttendance,
+		getAllSubjects
 	} from '$lib/db';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -18,7 +20,7 @@
 		if (!appState.newSubject.trim()) return;
 		await addSubject(appState.newSubject);
 		appState.newSubject = '';
-		await appState.loadSubjects();
+		await loadSubjects();
 	};
 
 	const openSubject = (id: string) => {
@@ -40,11 +42,109 @@
 		newName = '';
 		if (!trimmed || trimmed === oldName) return;
 		await renameSubject(id, trimmed);
-		await appState.loadSubjects();
+		await loadSubjects();
 	}
 
 	let showSortModal = $state(false);
 	let showClearModal = $state(false);
+
+	// subject data
+	let subjects: Array<SubjectWithAttendance> = $state([]);
+	const loadSubjects = async () => {
+		loading = true;
+		subjects = await getAllSubjects(true);
+		loading = false;
+	};
+
+	let loading = $state(true);
+
+	//sort features
+
+	let sortStrategyAll = $state(localStorage.getItem('sortStrategyAll') ?? 'newest');
+	let sortStrategyToday = $state(localStorage.getItem('sortStrategyToday') ?? 'timetable');
+
+	const sortSubjects = (strategy: string, subs: Array<SubjectWithAttendance>) => {
+		//console.log(strategy);
+		const sorted = [...subs];
+		if (!strategy || strategy === 'name') {
+			sorted.sort((a, b) => a.name.localeCompare(b.name));
+		} else if (strategy === 'newest') {
+			sorted.sort((a, b) => b.createdAt - a.createdAt);
+		} else if (strategy === 'attendance_low') {
+			sorted.sort((a, b) => {
+				const pa = a.total == 0 ? 0 : Math.round((a.present / a.total) * 100);
+				const pb = b.total == 0 ? 0 : Math.round((b.present / b.total) * 100);
+
+				if (pa != pb) return pa - pb;
+				// i first wrote the next line in flow but suddenly realised it's redundant. what a gotcha!
+				// if (a.present != b.present) return a.present - b.present;
+				return b.absent - a.absent;
+			});
+		} else if (strategy === 'timetable') {
+			// Sort by earliest time slot for the selected day
+			sorted.sort((a, b) => {
+				const aSlotsToday =
+					a.timetableSlots?.filter((slot) => slot.dayOfWeek === appState.selectedDay) ?? [];
+				const bSlotsToday =
+					b.timetableSlots?.filter((slot) => slot.dayOfWeek === appState.selectedDay) ?? [];
+
+				if (aSlotsToday.length === 0 && bSlotsToday.length === 0) return 0;
+				if (aSlotsToday.length === 0) return 1;
+				if (bSlotsToday.length === 0) return -1;
+
+				const aEarliest = Math.min(...aSlotsToday.map((s) => s.startHour));
+				const bEarliest = Math.min(...bSlotsToday.map((s) => s.startHour));
+
+				return aEarliest - bEarliest;
+			});
+		} else {
+			sorted.sort((a, b) => {
+				const pa = a.total == 0 ? 0 : Math.round((a.present / a.total) * 100);
+				const pb = b.total == 0 ? 0 : Math.round((b.present / b.total) * 100);
+				if (pa != pb) return pb - pa;
+				// if (a.present != b.present) return a.present - b.present;
+				return a.absent - b.absent;
+			});
+		}
+		return sorted;
+	};
+
+	let sortedSubjects: Array<SubjectWithAttendance> = $derived.by(() =>
+		sortSubjects(sortStrategy, subjects)
+	);
+
+	let filteredSubjects: Array<SubjectWithAttendance> = $derived.by(() => {
+		let filtered = sortedSubjects;
+
+		if (appState.timetableMode) {
+			filtered = filtered.filter((subject) => {
+				const todaysSlots =
+					subject.timetableSlots?.filter((slot) => slot.dayOfWeek === appState.selectedDay) ?? [];
+				return todaysSlots.length > 0;
+			});
+		}
+
+		return filtered;
+	});
+	let sortOptions = $derived.by(() => {
+		const baseOptions = [
+			{ type: 'name', value: 'Name' },
+			{ type: 'newest', value: 'Newest Date First' },
+			{ type: 'attendance_low', value: 'Lowest Attendance First' },
+			{ type: 'attendance_high', value: 'Highest Attendance First' }
+		];
+
+		if (appState.timetableMode) {
+			baseOptions.push({ type: 'timetable', value: 'Timetable Order' });
+		}
+
+		return baseOptions;
+	});
+	let sortStrategy = $derived(appState.timetableMode ? sortStrategyToday : sortStrategyAll);
+
+	onMount(async () => {
+		await loadSubjects();
+	});
 </script>
 
 {#if openMenuFor}
@@ -113,12 +213,12 @@
 	</div>
 {/if}
 
-{#if appState.loading !== false}
+{#if loading !== false}
 	<Spinner />
 {:else}
 	<div class="card">
 		<ul class="space-y-2">
-			{#each appState.filteredSubjects as subject (subject.id)}
+			{#each filteredSubjects as subject (subject.id)}
 				<li class="flex justify-between gap-2">
 					{#if editing === subject.id}
 						<input
@@ -275,7 +375,7 @@
 	</div>
 {/if}
 
-{#if appState.subjects.length}
+{#if subjects.length}
 	<p class="text-center">
 		<button onclick={() => (showClearModal = true)} class="text-(--primary) underline"
 			>Clear All Subjects</button
@@ -289,7 +389,7 @@
 			class="danger px-4 py-1"
 			onclick={async () => {
 				await deleteSubject(subjectToDelete);
-				await appState.loadSubjects();
+				await loadSubjects();
 				showDeleteModal = false;
 			}}>Confirm</button
 		>
@@ -306,18 +406,18 @@
 			onchange={(e) => {
 				const value = e.currentTarget.value;
 				if (appState.timetableMode) {
-					appState.sortStrategyToday = value;
+					sortStrategyToday = value;
 					localStorage.setItem('sortStrategyToday', value);
 				} else {
-					appState.sortStrategyAll = value;
+					sortStrategyAll = value;
 					localStorage.setItem('sortStrategyAll', value);
 				}
 				showSortModal = false;
 			}}
-			value={appState.sortStrategy}
+			value={sortStrategy}
 			class="w-fit border px-2 py-0.5"
 		>
-			{#each appState.sortOptions as opt}
+			{#each sortOptions as opt}
 				<option value={opt.type}>{opt.value}</option>
 			{/each}
 		</select>
@@ -330,7 +430,7 @@
 			class="danger px-4 py-1"
 			onclick={async () => {
 				await clearAllData();
-				await appState.loadSubjects();
+				await loadSubjects();
 				showClearModal = false;
 			}}>Confirm</button
 		>

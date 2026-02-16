@@ -45,7 +45,7 @@
 
 	const loadSubject = async () => {
 		subject = await getSubjectById(subjectId);
-		if (!subject) goto('/');
+		if (!subject) goto(resolve('/'));
 	};
 
 	const loadCalendar = async () => {
@@ -196,7 +196,7 @@
 	let slotError = $state('');
 </script>
 
-{#if loading}
+{#if loading !== false}
 	<Spinner />
 {:else}
 	<div class="flex flex-col gap-4">
@@ -355,11 +355,9 @@
 				}}>Confirm</button
 			>
 		{/snippet}
-		<h1 class="mb-2 text-2xl">{`Clear all attendance data for this subject?`}</h1>
+		<h1 class="mb-2 text-2xl">Clear all attendance data for this subject?</h1>
 
-		<p class="mb-2">
-			{`This will permanently delete all attendance records for the subject!`}
-		</p></Modal
+		<p class="mb-2">This will permanently delete all attendance records for the subject!</p></Modal
 	>
 
 	<!-- Add Timetable Slot Modal -->
